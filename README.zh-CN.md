@@ -38,7 +38,7 @@ project/
 
 ## tinyship.config.yml
 
-`tinyship.config.yml` 描述发布目标和文件清单。
+`tinyship.config.yml` 描述发布目标和文件清单。SSH 可以使用 `target` 表示 SSH alias / `user@host`，也可以拆成 `host`、`user`、`port` 和 `identityFile`。
 
 ```yaml
 hosts:
@@ -57,7 +57,10 @@ hosts:
 
   demo-host-two:
     ssh:
-      target: deploy@example.org
+      host: example.org             # SSH host
+      user: deploy                  # 可选 SSH 用户名
+      port: 2222                    # 可选 SSH 端口
+      identityFile: ~/.ssh/id_demo  # 可选私钥路径
     appDir: /var/www/example
     rsync:
       - dist/

@@ -38,7 +38,7 @@ project/
 
 ## tinyship.config.yml
 
-`tinyship.config.yml` describes deployment targets and file lists.
+`tinyship.config.yml` describes deployment targets and file lists. SSH can use either `target` for an SSH alias / `user@host`, or split fields with `host`, `user`, `port`, and `identityFile`.
 
 ```yaml
 hosts:
@@ -57,7 +57,10 @@ hosts:
 
   demo-host-two:
     ssh:
-      target: deploy@example.org
+      host: example.org             # SSH host
+      user: deploy                  # Optional SSH user
+      port: 2222                    # Optional SSH port
+      identityFile: ~/.ssh/id_demo  # Optional private key path
     appDir: /var/www/example
     rsync:
       - dist/
