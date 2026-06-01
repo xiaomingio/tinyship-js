@@ -1,0 +1,15 @@
+# File purpose: Ignore local development files while keeping demo env files committed.
+
+node_modules/
+
+# Local private env files stay ignored. This demo intentionally commits
+# .env.prod.*.example and .env.prod.* files so TinyShip can validate
+# a complete multi-service deployment example from Git.
+.env
+.env.*
+!.env.prod.tinyship-demo-user.example
+!.env.prod.tinyship-demo-admin.example
+!.env.prod.tinyship-demo-backend.example
+!.env.prod.tinyship-demo-user
+!.env.prod.tinyship-demo-admin
+!.env.prod.tinyship-demo-backend

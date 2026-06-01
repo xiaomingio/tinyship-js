@@ -1,0 +1,49 @@
+{
+  "name": "@xiaomingio/tinyship-env",
+  "version": "0.1.1",
+  "description": "Tiny runtime env loader for Node.js services.",
+  "license": "ISC",
+  "homepage": "https://xiaoming.io",
+  "author": "xiaomingio",
+  "keywords": [
+    "dotenv",
+    "env",
+    "node",
+    "pm2",
+    "deployment"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaomingio/tinyship-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xiaomingio/tinyship-js/issues"
+  },
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "exports": {
+    "./register": {
+      "types": "./dist/register.d.ts",
+      "default": "./dist/register.js"
+    }
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "dist"
+  ],
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "typescript": "^6.0.3"
+  }
+}

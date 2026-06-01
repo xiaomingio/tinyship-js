@@ -1,0 +1,57 @@
+{
+  "name": "@xiaomingio/tinyship",
+  "version": "0.1.1",
+  "description": "Tiny deploy/runtime toolkit for Node.js and PM2 projects.",
+  "license": "ISC",
+  "homepage": "https://xiaoming.io",
+  "author": "xiaomingio",
+  "keywords": [
+    "deploy",
+    "deployment",
+    "pm2",
+    "node",
+    "rsync",
+    "dotenv"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaomingio/tinyship-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xiaomingio/tinyship-js/issues"
+  },
+  "type": "module",
+  "bin": {
+    "tinyship": "bin/tinyship.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm test",
+    "test": "npm run build && node --import tsx --test test/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/deploy.d.ts",
+      "default": "./dist/deploy.js"
+    }
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "bin",
+    "dist"
+  ],
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "tsx": "^4.22.1",
+    "typescript": "^6.0.3"
+  }
+}
