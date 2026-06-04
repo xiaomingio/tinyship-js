@@ -81,6 +81,28 @@ test('preflight skips host checks when SSH connection fails', async () => {
   assert.ok(hostChecks.some(check => check.name === 'node' && check.skipped));
 });
 
+test('preflight only checks tools required by enabled actions', async () => {
+  const commands = [];
+  const report = await createPreflightReport({
+    rootDir: process.cwd(),
+    deployConfig: exampleDeployConfig({
+      npmInstall: false,
+      pm2Restart: false,
+      rsync: ['dist/'],
+    }),
+    runner: async (command, args) => {
+      commands.push([command, args]);
+      return { stdout: `${command}-ok\n`, stderr: '' };
+    },
+  });
+
+  assert.equal(report.ok, true);
+  assert.equal(commands.some(([command, args]) => command === 'ssh' && args.includes('node --version')), false);
+  assert.equal(commands.some(([command, args]) => command === 'ssh' && args.includes('npm --version')), false);
+  assert.equal(commands.some(([command, args]) => command === 'ssh' && args.includes('pm2 --version')), false);
+  assert.ok(commands.some(([command, args]) => command === 'ssh' && args.includes('rsync --version | head -n 1')));
+});
+
 test('preflight summary does not repeat item details', async () => {
   const report = await createPreflightReport({
     rootDir: process.cwd(),

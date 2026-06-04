@@ -2,9 +2,9 @@
 
 English | [简体中文](README.zh-CN.md)
 
-tinyship-js is a lightweight deployment tool for solo developers and small teams. It deploys Node.js / PM2 projects to servers you own.
+tinyship-js is a lightweight deployment tool for solo developers and small teams. It deploys local build output to servers you own.
 
-It standardizes a common deployment flow: build the project locally, synchronize the files needed by each service to the matching host, install production dependencies on the server, reload the matching PM2 services, and load the matching env file at runtime.
+It standardizes a common deployment flow: build the project locally, synchronize the files needed by each host, then optionally run npm install, PM2 restart, and custom post-deploy commands on the server.
 
 ## Installation
 
@@ -21,10 +21,10 @@ A project using TinyShip usually looks like this:
 
 ```text
 project/
-├── tinyship.config.yml             # Deployment config: hosts, services, and each host's file list
-├── ecosystem.config.cjs            # PM2 service config
-├── package.json                    # Project dependencies and scripts
-├── package-lock.json               # Used by the server when installing production dependencies
+├── tinyship.config.yml             # Deployment config: hosts, file lists, and service actions
+├── ecosystem.config.cjs            # PM2 service config, required only when pm2Restart is enabled
+├── package.json                    # Project dependencies and scripts, required only when npmInstall is enabled
+├── package-lock.json               # Used by default npmInstall
 ├── src/                            # Source code
 ├── dist/                           # Locally built output, ignored by git
 ├── .env                            # Local development env file, ignored by git
@@ -38,7 +38,7 @@ project/
 
 ## tinyship.config.yml
 
-`tinyship.config.yml` describes deployment targets and file lists. SSH can use either `target` for an SSH alias / `user@host`, or split fields with `host`, `user`, `port`, and `identityFile`.
+`tinyship.config.yml` describes deployment targets, host file lists, and optional service actions. SSH can use either `target` for an SSH alias / `user@host`, or split fields with `host`, `user`, `port`, and `identityFile`.
 
 ```yaml
 hosts:
@@ -47,7 +47,7 @@ hosts:
       target: deploy@example.com # SSH alias or user@host
     appDir: /var/www/example     # Project directory on the server
     rsync:                       # File list deployed to this host
-      - dist/                    # Local build output
+      - dist/                    # Local build output, or a subtree like dist/demo-service-one/
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -63,7 +63,7 @@ hosts:
       identityFile: ~/.ssh/id_demo  # Optional private key path
     appDir: /var/www/example
     rsync:
-      - dist/
+      - dist/demo-service-three/
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -73,15 +73,64 @@ hosts:
 services:
   demo-service-one:     # Service name, must match the PM2 app name
     host: demo-host-one # Deploys to hosts.demo-host-one
+    npmInstall: true    # If any selected service on a host enables this, npm install runs once for that host
+    pm2Restart: true    # Restarts only this service with PM2
+    postCommand: []     # Custom commands for this service
   demo-service-two:
     host: demo-host-one
+    npmInstall: false
+    pm2Restart: true
+    postCommand:
+      - printf demo-service-two-deployed
   demo-service-three:
     host: demo-host-two
+    npmInstall: true
+    pm2Restart: true
+```
+
+`rsync` runs from the project root with relative paths preserved. You can list the whole `dist/` directory or only the subdirectory that contains a host's PM2 scripts, for example `dist/demo-service-three/` deploys to `<appDir>/dist/demo-service-three/`.
+
+Action fields use this shape:
+
+```ts
+type TinyShipService = {
+  host: string; // References hosts.<hostName>
+  npmInstall?: boolean; // true runs npm install --omit=dev and requires package.json in rsync
+  pm2Restart?: boolean; // true uses ecosystem.config.cjs and pm2 save for this service
+  postCommand?: string[]; // Commands run on the remote host from appDir after npmInstall and pm2Restart for this service
+};
+```
+
+`rsync` belongs to the host and runs once for each selected host. `npmInstall`, `pm2Restart`, and `postCommand` belong to services. When deploying a single service, TinyShip still rsyncs that service's host, runs npm install only if the selected service enables `npmInstall`, restarts only the selected PM2 service, and runs only the selected service's `postCommand`.
+
+`npmInstall` is only for npm dependency installation. If any selected service on a host enables it, TinyShip runs `npm install --omit=dev` once for that host and checks that `package.json` is included in the host `rsync`.
+
+`pm2Restart` is only for PM2. When any selected service enables it, TinyShip loads `ecosystem.config.cjs`, checks that the file is included in the host `rsync`, checks that each selected PM2 service exists in the ecosystem apps, checks that each PM2 script is covered by `rsync`, checks the matching `.env.prod.<service>` file, runs `pm2 startOrReload ecosystem.config.cjs --only <service> --update-env`, and then runs `pm2 save`.
+
+`postCommand` is for custom remote commands. TinyShip validates only that it is an array of non-empty strings and runs each selected service's commands after the built-in npm and PM2 actions.
+
+Static deployments can disable the built-in remote actions:
+
+```yaml
+hosts:
+  static-site:
+    ssh:
+      target: deploy@example.com
+    appDir: /var/www/site
+    rsync:
+      - dist/
+
+services:
+  static-site:
+    host: static-site
+    npmInstall: false
+    pm2Restart: false
+    postCommand: []
 ```
 
 ## ecosystem.config.cjs
 
-PM2 service names must match the service names in `tinyship.config.yml`.
+PM2 service names must match the services selected by `pm2Restart`. When `pm2Restart` is disabled, this file is not required.
 
 ```js
 module.exports = {
@@ -136,10 +185,11 @@ Add this to your project's root `package.json`:
 {
   "scripts": {
     "build": "node scripts/build.mjs",                  // Run your project's own build flow
-    "deploy:validate": "tinyship validate",             // Validate config, PM2 apps, env files, and local files
+    "deploy:validate": "tinyship validate",             // Validate config, enabled actions, env files, and local files
     "deploy:preflight": "tinyship preflight",           // Check SSH, remote tools, directory permissions, and local rsync
-    "deploy:dry-run": "tinyship dry-run all",           // Preview deployment commands for all hosts
-    "deploy:host-one": "tinyship deploy demo-host-one", // Deploy only demo-host-one
+    "deploy:dry-run": "tinyship dry-run all",           // Preview deployment commands for all hosts and services
+    "deploy:host-one": "tinyship deploy host demo-host-one", // Deploy one host and all services on it
+    "deploy:service-one": "tinyship deploy service demo-service-one", // Deploy one service
     "deploy:all": "tinyship deploy all"                 // Deploy all hosts
   }
 }
@@ -150,7 +200,8 @@ Add this to your project's root `package.json`:
 Before the first deployment, prepare these on the server:
 
 - SSH, with a local SSH key configured for passwordless login
-- Node.js / npm / PM2
+- Node.js / npm, when npmInstall is enabled
+- PM2, when pm2Restart is enabled
 - rsync
 - Writable project directory
 - System dependencies required by your project

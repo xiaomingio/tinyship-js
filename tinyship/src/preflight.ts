@@ -1,5 +1,5 @@
 /**
- * 文件说明: 执行 TinyShip 远程部署前检查，验证 SSH、Node、npm、PM2、rsync 和 appDir 权限。
+ * 文件说明: 执行 TinyShip 远程部署前检查，按启用的发布动作验证 SSH、远程工具、rsync 和 appDir 权限。
  * 参考资料: packages/tinyship/README.md
  */
 import { execFile } from 'node:child_process';
@@ -184,21 +184,25 @@ export async function createPreflightReport({
         command: 'ssh',
         args: remoteCommand(plan.host.ssh, 'printf tinyship-preflight'),
       },
-      {
-        name: 'node',
-        command: 'ssh',
-        args: remoteCommand(plan.host.ssh, 'node --version'),
-      },
-      {
-        name: 'npm',
-        command: 'ssh',
-        args: remoteCommand(plan.host.ssh, 'npm --version'),
-      },
-      {
-        name: 'pm2',
-        command: 'ssh',
-        args: remoteCommand(plan.host.ssh, 'pm2 --version'),
-      },
+      ...(plan.npmInstallCommand ? [
+        {
+          name: 'node',
+          command: 'ssh',
+          args: remoteCommand(plan.host.ssh, 'node --version'),
+        },
+        {
+          name: 'npm',
+          command: 'ssh',
+          args: remoteCommand(plan.host.ssh, 'npm --version'),
+        },
+      ] : []),
+      ...(plan.pm2Restart ? [
+        {
+          name: 'pm2',
+          command: 'ssh',
+          args: remoteCommand(plan.host.ssh, 'pm2 --version'),
+        },
+      ] : []),
       {
         name: 'rsync',
         command: 'ssh',

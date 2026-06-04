@@ -11,7 +11,8 @@ import type { DeployConfig, EcosystemConfig, SshConfig } from './types.js';
 
 export const defaultRootDir = process.cwd();
 export const ecosystemFile = 'ecosystem.config.cjs';
-export const requiredRsyncPaths = ['dist/', 'package.json', 'package-lock.json', ecosystemFile, 'tinyship.config.yml'];
+export const defaultNpmInstallCommand = 'npm install --omit=dev';
+export const requiredRsyncPaths: string[] = [];
 
 export function uniqueValues<T>(values: T[]): T[] {
   return [...new Set(values)];
@@ -53,8 +54,16 @@ export function rsyncSshArgs(ssh: SshConfig): string[] {
   return args.length > 0 ? ['-e', ['ssh', ...args].map(shellQuote).join(' ')] : [];
 }
 
+function normalizeRsyncPath(input: string): string {
+  return input.replace(/\/+$/, '');
+}
+
 export function rsyncCoversPath(rsyncPaths: string[], path: string): boolean {
-  return rsyncPaths.some(rsyncPath => rsyncPath === path || (rsyncPath.endsWith('/') && path.startsWith(rsyncPath)));
+  const normalizedPath = normalizeRsyncPath(path);
+  return rsyncPaths.some(rsyncPath => {
+    const normalizedRsyncPath = normalizeRsyncPath(rsyncPath);
+    return normalizedRsyncPath === normalizedPath || normalizedPath.startsWith(`${normalizedRsyncPath}/`);
+  });
 }
 
 export async function loadDeployConfig(configPath: string | URL = 'tinyship.config.yml', rootDir = defaultRootDir): Promise<DeployConfig> {

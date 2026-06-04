@@ -27,7 +27,16 @@ hosts:
 services:
   tinyship-demo-user:
     host: frontend
+    npmInstall: true
+    pm2Restart: true
+    postCommand: []
   tinyship-demo-admin:
     host: frontend
+    npmInstall: true
+    pm2Restart: true
+    postCommand: []
   tinyship-demo-backend:
     host: backend
+    npmInstall: true
+    pm2Restart: true
+    postCommand: []

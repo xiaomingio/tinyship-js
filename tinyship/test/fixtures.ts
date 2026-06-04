@@ -1,7 +1,7 @@
 /**
  * 文件说明: 提供 TinyShip 测试共享的最小 deploy config、ecosystem config 和 rsync 清单。
  */
-export const requiredRsync = ['dist/', 'package.json', 'package-lock.json', 'ecosystem.config.cjs', 'tinyship.config.yml'];
+export const requiredRsync = ['package.json', 'package-lock.json', 'ecosystem.config.cjs', 'tinyship.config.yml'];
 
 export function exampleEcosystemConfig({ script = 'dist/src/server.js', nodeEnv = 'prod.example-server' } = {}) {
   return {
@@ -15,7 +15,14 @@ export function exampleEcosystemConfig({ script = 'dist/src/server.js', nodeEnv 
   };
 }
 
-export function exampleDeployConfig({ hostName = 'web', ssh = { target: 'root@example.com' }, rsync = [...requiredRsync, '.env.prod.example-server'] } = {}) {
+export function exampleDeployConfig({
+  hostName = 'web',
+  ssh = { target: 'root@example.com' },
+  rsync = ['dist/', ...requiredRsync, '.env.prod.example-server'],
+  npmInstall = true,
+  pm2Restart = true,
+  postCommand = [],
+} = {}) {
   return {
     hosts: {
       [hostName]: {
@@ -25,7 +32,12 @@ export function exampleDeployConfig({ hostName = 'web', ssh = { target: 'root@ex
       },
     },
     services: {
-      'example-server': { host: hostName },
+      'example-server': {
+        host: hostName,
+        npmInstall,
+        pm2Restart,
+        postCommand,
+      },
     },
   };
 }

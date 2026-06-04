@@ -76,6 +76,7 @@ You can deploy each localhost target separately:
 ```bash
 npm run deploy:frontend
 npm run deploy:backend
+npm run deploy:user
 ```
 
 TinyShip deploys into `/tmp/tinyship-demo/frontend` and `/tmp/tinyship-demo/backend`, which works on both macOS and Linux.

@@ -14,15 +14,16 @@
     "deploy:preflight": "tinyship preflight",
     "deploy:dry-run": "tinyship dry-run all",
     "deploy:all": "tinyship deploy all",
-    "deploy:frontend": "tinyship deploy frontend",
-    "deploy:backend": "tinyship deploy backend"
+    "deploy:frontend": "tinyship deploy host frontend",
+    "deploy:backend": "tinyship deploy host backend",
+    "deploy:user": "tinyship deploy service tinyship-demo-user"
   },
   "dependencies": {
     "@xiaomingio/tinyship-env": "^0.1.0",
     "pm2": "^7.0.1"
   },
   "devDependencies": {
-    "@xiaomingio/tinyship": "^0.1.0",
+    "@xiaomingio/tinyship": "^0.1.2",
     "@types/node": "^25.8.0",
     "esbuild": "^0.27.1",
     "tsx": "^4.22.1",

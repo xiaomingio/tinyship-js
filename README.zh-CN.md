@@ -2,9 +2,9 @@
 
 [English](README.md) | 简体中文
 
-tinyship-js 是给个人开发者和小团队用的轻量发布工具，用来把 Node.js / PM2 项目发布到自己的服务器。
+tinyship-js 是给个人开发者和小团队用的轻量发布工具，用来把本地构建产物发布到自己的服务器。
 
-它把一套常见发布流程标准化：先在本地构建项目，再按配置把不同 service 需要的文件同步到对应 host，然后在服务器安装生产依赖，重载对应的 PM2 服务，最后在运行时加载对应 env。
+它把一套常见发布流程标准化：先在本地构建项目，再按配置把每台 host 需要的文件同步过去，然后可选地在服务器执行 npm install、PM2 restart 和自定义发布后命令。
 
 ## 安装
 
@@ -21,10 +21,10 @@ npm install -D @xiaomingio/tinyship
 
 ```text
 project/
-├── tinyship.config.yml             # 发布配置：hosts、services、每台 host 要同步的文件
-├── ecosystem.config.cjs            # PM2 服务配置
-├── package.json                    # 项目依赖和 scripts
-├── package-lock.json               # 服务器安装生产依赖时使用
+├── tinyship.config.yml             # 发布配置：hosts、文件清单、service 动作
+├── ecosystem.config.cjs            # PM2 服务配置，仅启用 pm2Restart 时需要
+├── package.json                    # 项目依赖和 scripts，仅启用 npmInstall 时需要
+├── package-lock.json               # 默认 npmInstall 使用
 ├── src/                            # 源码
 ├── dist/                           # 本地构建后的产物，被 git 忽略
 ├── .env                            # 本地开发环境变量，被 git 忽略
@@ -38,7 +38,7 @@ project/
 
 ## tinyship.config.yml
 
-`tinyship.config.yml` 描述发布目标和文件清单。SSH 可以使用 `target` 表示 SSH alias / `user@host`，也可以拆成 `host`、`user`、`port` 和 `identityFile`。
+`tinyship.config.yml` 描述发布目标、host 文件清单和可选 service 动作。SSH 可以使用 `target` 表示 SSH alias / `user@host`，也可以拆成 `host`、`user`、`port` 和 `identityFile`。
 
 ```yaml
 hosts:
@@ -47,7 +47,7 @@ hosts:
       target: deploy@example.com # SSH alias 或 user@host
     appDir: /var/www/example     # 服务器上的项目目录
     rsync:                       # 发布到这个 host 的文件清单
-      - dist/                    # 本地构建产物
+      - dist/                    # 本地构建产物，也可以写 dist/demo-service-one/ 这样的子目录
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -63,7 +63,7 @@ hosts:
       identityFile: ~/.ssh/id_demo  # 可选私钥路径
     appDir: /var/www/example
     rsync:
-      - dist/
+      - dist/demo-service-three/
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -73,15 +73,64 @@ hosts:
 services:
   demo-service-one:     # service 名，需要和 PM2 app name 一致
     host: demo-host-one # 发布到 hosts.demo-host-one
+    npmInstall: true    # 当前 host 上选中的 services 只要有一个启用，就执行一次 npm install
+    pm2Restart: true    # 只用 PM2 重启这个 service
+    postCommand: []     # 这个 service 的自定义命令
   demo-service-two:
     host: demo-host-one
+    npmInstall: false
+    pm2Restart: true
+    postCommand:
+      - printf demo-service-two-deployed
   demo-service-three:
     host: demo-host-two
+    npmInstall: true
+    pm2Restart: true
+```
+
+`rsync` 会从项目根目录发起，并保留相对路径。你可以列出整个 `dist/`，也可以只列出包含某台 host 的 PM2 script 的子目录，例如 `dist/demo-service-three/` 会发布到 `<appDir>/dist/demo-service-three/`。
+
+远程动作字段使用下面的结构：
+
+```ts
+type TinyShipService = {
+  host: string; // 指向 hosts.<hostName>
+  npmInstall?: boolean; // true 执行 npm install --omit=dev，并要求 package.json 在 rsync 中
+  pm2Restart?: boolean; // true 使用 ecosystem.config.cjs 和 pm2 save 重启这个 service
+  postCommand?: string[]; // 在远程 appDir 中执行，顺序在这个 service 的 npmInstall 和 pm2Restart 之后
+};
+```
+
+`rsync` 属于 host，每个选中的 host 只执行一次。`npmInstall`、`pm2Restart` 和 `postCommand` 属于 services。只发布单个 service 时，TinyShip 仍会执行该 service 所在 host 的 `rsync`，只在这个 service 启用 `npmInstall` 时执行 npm install，只重启这个 PM2 service，也只执行这个 service 的 `postCommand`。
+
+`npmInstall` 只表示 npm 依赖安装。当前 host 上选中的 services 只要有一个启用它，TinyShip 就会在该 host 执行一次 `npm install --omit=dev`，并检查 `package.json` 是否包含在 host 的 `rsync` 中。
+
+`pm2Restart` 只表示 PM2 重启。选中的 services 只要有一个启用它，TinyShip 会加载 `ecosystem.config.cjs`，检查该文件是否包含在 host 的 `rsync` 中，检查每个选中的 PM2 service 是否存在于 ecosystem apps 中，检查每个 PM2 script 是否被 `rsync` 覆盖，检查匹配的 `.env.prod.<service>` 文件，执行 `pm2 startOrReload ecosystem.config.cjs --only <service> --update-env`，然后执行 `pm2 save`。
+
+`postCommand` 表示自定义远程命令。TinyShip 只校验它是非空字符串数组，并在内置 npm 和 PM2 动作之后逐条执行选中 services 的命令。
+
+静态发布可以关闭内置远程动作：
+
+```yaml
+hosts:
+  static-site:
+    ssh:
+      target: deploy@example.com
+    appDir: /var/www/site
+    rsync:
+      - dist/
+
+services:
+  static-site:
+    host: static-site
+    npmInstall: false
+    pm2Restart: false
+    postCommand: []
 ```
 
 ## ecosystem.config.cjs
 
-PM2 服务名要和 `tinyship.config.yml` 里的 service 名一致。
+PM2 服务名要和 `pm2Restart` 选择的 services 一致。禁用 `pm2Restart` 时不需要这个文件。
 
 ```js
 module.exports = {
@@ -136,10 +185,11 @@ TinyShip 会按下面的规则加载 env 文件：
 {
   "scripts": {
     "build": "node scripts/build.mjs",                  // 运行项目自己的构建流程
-    "deploy:validate": "tinyship validate",             // 校验配置、PM2 apps、env 文件和本地文件
+    "deploy:validate": "tinyship validate",             // 校验配置、启用的远程动作、env 文件和本地文件
     "deploy:preflight": "tinyship preflight",           // 检查 SSH、远程工具、目录权限和本地 rsync
-    "deploy:dry-run": "tinyship dry-run all",           // 预览全部 host 的发布命令
-    "deploy:host-one": "tinyship deploy demo-host-one", // 只发布 demo-host-one
+    "deploy:dry-run": "tinyship dry-run all",           // 预览全部 host 和 services 的发布命令
+    "deploy:host-one": "tinyship deploy host demo-host-one", // 发布一台 host 和它上面的全部 services
+    "deploy:service-one": "tinyship deploy service demo-service-one", // 只发布一个 service
     "deploy:all": "tinyship deploy all"                 // 发布全部 host
   }
 }
@@ -150,8 +200,9 @@ TinyShip 会按下面的规则加载 env 文件：
 首次发布前，服务器需提前准备好：
 
 - SSH，已经配置好本机SSH Key，可以免密码登录
-- Node.js / npm / PM2
 - rsync
+- 启用 npmInstall 时需要 Node.js / npm
+- 启用 pm2Restart 时需要 PM2
 - 可写的项目目录
 - 项目需要的系统依赖
 

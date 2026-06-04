@@ -5,7 +5,7 @@
 import { access } from 'node:fs/promises';
 
 import { defaultRootDir, envFileForNodeEnv, projectPath, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
-import { createDeployPlan, listDeployServices, validateEcosystemConfig, validateHost } from './plan.js';
+import { createDeployPlan, deployConfigNeedsEcosystemConfig, listDeployServices, validateEcosystemConfig, validateHost } from './plan.js';
 import type { DeployConfig, EcosystemApp, EcosystemConfig, ValidationCheck, ValidationReport } from './types.js';
 
 const color = {
@@ -83,10 +83,13 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
     return hostNames;
   }) ?? [];
 
-  const ecosystemApps: EcosystemApp[] = check('config', 'ecosystem apps', 'ecosystem.config.cjs must define PM2 apps', () => {
-    if (!ecosystemConfig) throw new Error('Deploy validation requires ecosystemConfig');
-    return validateEcosystemConfig(ecosystemConfig);
-  }) ?? [];
+  const needsEcosystem = check('config', 'deploy actions', 'enabled npmInstall, pm2Restart, and postCommand actions', () => deployConfigNeedsEcosystemConfig(deployConfig)) ?? true;
+  const ecosystemApps: EcosystemApp[] = needsEcosystem
+    ? check('config', 'ecosystem apps', 'enabled pm2Restart requires PM2 apps', () => {
+      if (!ecosystemConfig) throw new Error('Deploy validation requires ecosystemConfig');
+      return validateEcosystemConfig(ecosystemConfig);
+    }) ?? []
+    : [];
   const services = check('config', 'deploy config services', 'services map service names to hosts', () => listDeployServices(deployConfig)) ?? [];
 
   for (const hostName of hosts) {
@@ -95,6 +98,8 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
 
   for (const serviceName of services) {
     const hostName = deployConfig.services[serviceName]?.host ?? '(missing)';
+    const serviceConfig = deployConfig.services?.[serviceName];
+    if ((serviceConfig?.pm2Restart ?? true) === false) continue;
     check('services', formatService(serviceName), `host=${formatHost(hostName)}`, () => {
       const app = ecosystemApps.find(item => item.name === serviceName);
       if (!app) throw new Error(`Deploy service ${serviceName} is missing from PM2 ecosystem apps`);
@@ -116,7 +121,7 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
     }
 
     const serviceScriptPaths: string[] = [];
-    for (const service of plan.services) {
+    for (const service of plan.pm2Restart?.services ?? []) {
       check(`plan:${formatHost(hostName)}`, 'script covered', formatService(service.name), () => {
         const app = ecosystemApps.find(item => item.name === service.name);
         if (!app) throw new Error(`Deploy service ${service.name} is missing from PM2 ecosystem apps`);
@@ -127,7 +132,11 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
       });
     }
 
-    for (const rsyncPath of uniqueValues([...plan.host.rsync, ...serviceScriptPaths])) {
+    const actionPaths = [
+      ...(plan.pm2Restart ? [plan.pm2Restart.ecosystem] : []),
+      ...(plan.npmInstallCommand === 'npm install --omit=dev' ? ['package.json'] : []),
+    ];
+    for (const rsyncPath of uniqueValues([...plan.host.rsync, ...serviceScriptPaths, ...actionPaths])) {
       await checkAsync(`files:${formatHost(hostName)}`, 'rsync path exists', rsyncPath, async () => {
         await access(projectPath(rootDir, rsyncPath));
       });

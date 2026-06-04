@@ -33,8 +33,8 @@ test('deploy plan derives prod env files from service ids', () => {
         },
       },
       services: {
-        'example-server': { host: 'web' },
-        'example-worker': { host: 'web' },
+        'example-server': { host: 'web', npmInstall: true, pm2Restart: true, postCommand: [] },
+        'example-worker': { host: 'web', npmInstall: false, pm2Restart: true, postCommand: [] },
       },
     },
   });
@@ -42,6 +42,129 @@ test('deploy plan derives prod env files from service ids', () => {
   assert.deepEqual(plan.envFiles, ['.env.prod.example-server', '.env.prod.example-worker']);
   assert.deepEqual(plan.services.map(service => service.nodeEnv), ['prod.example-server', 'prod.example-worker']);
   assert.deepEqual(plan.host.ssh, { target: 'root@example.com' });
+});
+
+test('deploy validation accepts static hosts without services or ecosystem', () => {
+  assert.doesNotThrow(() =>
+    validateDeployConfig({
+      deployConfig: {
+        hosts: {
+          static: {
+            ssh: { target: 'root@example.com' },
+            appDir: '/var/www/static',
+            rsync: ['dist/'],
+          },
+        },
+        services: {
+          static: { host: 'static', npmInstall: false, pm2Restart: false, postCommand: [] },
+        },
+      },
+    }),
+  );
+});
+
+test('deploy plan can target one service while still using the host rsync list', () => {
+  const deployConfig = {
+    hosts: {
+      web: {
+        ssh: { target: 'root@example.com' },
+        appDir: '/var/www/example',
+        rsync: ['dist/', ...requiredRsync, '.env.prod.example-server', '.env.prod.example-worker'],
+      },
+    },
+    services: {
+      'example-server': { host: 'web', npmInstall: true, pm2Restart: true, postCommand: ['printf server'] },
+      'example-worker': { host: 'web', npmInstall: false, pm2Restart: true, postCommand: ['printf worker'] },
+    },
+  };
+
+  const plan = createDeployPlan({
+    hostName: 'web',
+    serviceNames: ['example-server'],
+    ecosystemConfig: {
+      apps: [
+        { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'prod.example-server' } },
+        { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'prod.example-worker' } },
+      ],
+    },
+    deployConfig,
+  });
+
+  assert.deepEqual(plan.services.map(service => service.name), ['example-server']);
+  assert.deepEqual(plan.envFiles, ['.env.prod.example-server']);
+  assert.equal(plan.npmInstallCommand, 'npm install --omit=dev');
+  assert.deepEqual(plan.pm2Restart?.services.map(service => service.name), ['example-server']);
+  assert.deepEqual(plan.postCommand, ['printf server']);
+  assert.deepEqual(plan.host.rsync, deployConfig.hosts.web.rsync);
+});
+
+test('deploy validation requires ecosystem to be uploaded when pm2Restart is enabled', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        ecosystemConfig: exampleEcosystemConfig(),
+        deployConfig: exampleDeployConfig({
+          rsync: ['dist/', 'package.json', 'package-lock.json', 'tinyship.config.yml', '.env.prod.example-server'],
+        }),
+      }),
+    /ecosystem\.config\.cjs/,
+  );
+});
+
+test('deploy validation rejects empty custom post commands', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          npmInstall: false,
+          pm2Restart: false,
+          postCommand: [''],
+          rsync: ['dist/'],
+        }),
+      }),
+    /postCommand/,
+  );
+});
+
+test('deploy validation requires package json when npmInstall is enabled', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          npmInstall: true,
+          pm2Restart: false,
+          rsync: ['dist/'],
+        }),
+      }),
+    /package\.json/,
+  );
+});
+
+test('deploy validation rejects custom npmInstall config objects', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          npmInstall: { command: 'npm ci --omit=dev' },
+          pm2Restart: false,
+          rsync: ['dist/'],
+        }),
+      }),
+    /npmInstall must be a boolean/,
+  );
+});
+
+test('deploy validation rejects custom pm2Restart config objects', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        ecosystemConfig: exampleEcosystemConfig(),
+        deployConfig: exampleDeployConfig({
+          pm2Restart: { services: ['example-server'] },
+        }),
+      }),
+    /pm2Restart must be a boolean/,
+  );
 });
 
 test('deploy validation requires NODE_ENV to match prod service id', () => {
@@ -66,16 +189,38 @@ test('deploy validation accepts split ssh user and host', () => {
   );
 });
 
-test('deploy validation requires baseline rsync paths', () => {
+test('deploy validation does not require tinyship config to be uploaded', () => {
+  assert.doesNotThrow(() =>
+    validateDeployConfig({
+      ecosystemConfig: exampleEcosystemConfig(),
+      deployConfig: exampleDeployConfig({
+        rsync: ['dist/src/', 'package.json', 'package-lock.json', 'ecosystem.config.cjs', '.env.prod.example-server'],
+      }),
+    }),
+  );
+});
+
+test('deploy validation still requires enabled pm2Restart ecosystem to be uploaded', () => {
   assert.throws(
     () =>
       validateDeployConfig({
         ecosystemConfig: exampleEcosystemConfig(),
         deployConfig: exampleDeployConfig({
-          rsync: ['dist/', 'package.json', 'package-lock.json', 'ecosystem.config.cjs', '.env.prod.example-server'],
+          rsync: ['dist/src/', 'package.json', 'package-lock.json', '.env.prod.example-server'],
         }),
       }),
-    /tinyship\.config\.yml/,
+    /ecosystem\.config\.cjs/,
+  );
+});
+
+test('deploy validation accepts a dist subdirectory when it covers PM2 scripts', () => {
+  assert.doesNotThrow(() =>
+    validateDeployConfig({
+      ecosystemConfig: exampleEcosystemConfig({ script: 'dist/src/server.js' }),
+      deployConfig: exampleDeployConfig({
+        rsync: ['dist/src', ...requiredRsync, '.env.prod.example-server'],
+      }),
+    }),
   );
 });
 

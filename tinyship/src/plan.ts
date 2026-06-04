@@ -2,10 +2,27 @@
  * 文件说明: 校验 TinyShip deploy config 与 PM2 ecosystem，并生成每台 host 的部署计划。
  * 参考资料: tinyship.config.yml, ecosystem.config.cjs
  */
-import { envFileForNodeEnv, productionNodeEnvForService, requiredRsyncPaths, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
-import type { DeployConfig, DeployHost, DeployPlan, EcosystemApp, EcosystemConfig } from './types.js';
+import { defaultNpmInstallCommand, ecosystemFile, envFileForNodeEnv, productionNodeEnvForService, requiredRsyncPaths, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
+import type { DeployConfig, DeployHost, DeployPlan, DeployPlanService, EcosystemApp, EcosystemConfig } from './types.js';
+
+function validateServiceActions(serviceName: string, service: DeployConfig['services'][string]): void {
+  if (service.npmInstall !== undefined && typeof service.npmInstall !== 'boolean') {
+    throw new Error(`Deploy service ${serviceName} npmInstall must be a boolean`);
+  }
+
+  if (service.pm2Restart !== undefined && typeof service.pm2Restart !== 'boolean') {
+    throw new Error(`Deploy service ${serviceName} pm2Restart must be a boolean`);
+  }
+
+  const postCommand = service.postCommand ?? [];
+  if (!Array.isArray(postCommand) || postCommand.some(command => typeof command !== 'string' || command.length === 0)) {
+    throw new Error(`Deploy service ${serviceName} postCommand must be an array of non-empty strings`);
+  }
+}
 
 function validateServices(deployConfig: DeployConfig): string[] {
+  if (!deployConfig.services) return [];
+
   if (!deployConfig.services || typeof deployConfig.services !== 'object' || Array.isArray(deployConfig.services)) {
     throw new Error('Deploy config must define services');
   }
@@ -28,6 +45,8 @@ function validateServices(deployConfig: DeployConfig): string[] {
     if (!deployConfig.hosts?.[service.host]) {
       throw new Error(`Deploy service ${serviceName} references unknown host: ${service.host}`);
     }
+
+    validateServiceActions(serviceName, service);
   }
 
   return serviceNames;
@@ -69,13 +88,43 @@ function ecosystemAppByName(ecosystemConfig: EcosystemConfig): Map<string, Ecosy
   return new Map(validateEcosystemConfig(ecosystemConfig).map(app => [app.name, app]));
 }
 
-function resolveServices(hostName: string, deployConfig: DeployConfig, ecosystemConfig: EcosystemConfig): DeployPlan['services'] {
-  const apps = ecosystemAppByName(ecosystemConfig);
-  const serviceNames = validateServices(deployConfig).filter(serviceName => deployConfig.services[serviceName].host === hostName);
+function serviceNamesForHost(hostName: string, deployConfig: DeployConfig, selectedServiceNames?: string[]): string[] {
+  const allServiceNames = validateServices(deployConfig);
+  const serviceNames = selectedServiceNames ?? allServiceNames.filter(serviceName => deployConfig.services[serviceName].host === hostName);
 
-  if (serviceNames.length === 0) {
-    throw new Error(`Deploy host ${hostName} must have at least one service`);
+  for (const serviceName of serviceNames) {
+    const service = deployConfig.services?.[serviceName];
+    if (!service) throw new Error(`Unknown deploy service: ${serviceName}`);
+    if (service.host !== hostName) throw new Error(`Deploy service ${serviceName} belongs to host ${service.host}, not ${hostName}`);
   }
+
+  return serviceNames;
+}
+
+function resolvePm2Action(hostName: string, serviceNames: string[], deployConfig: DeployConfig, ecosystemConfig?: EcosystemConfig): { ecosystem: string; serviceNames: string[]; save: boolean } | undefined {
+  const pm2ServiceNames = serviceNames.filter(serviceName => (deployConfig.services[serviceName].pm2Restart ?? true) === true);
+  if (pm2ServiceNames.length === 0) return undefined;
+  if (!ecosystemConfig) throw new Error(`Deploy host ${hostName} enables pm2Restart, but ecosystem config was not loaded`);
+
+  return {
+    ecosystem: ecosystemFile,
+    serviceNames: pm2ServiceNames,
+    save: true,
+  };
+}
+
+function resolveNpmInstallCommand(serviceNames: string[], deployConfig: DeployConfig): string | undefined {
+  return serviceNames.some(serviceName => (deployConfig.services[serviceName].npmInstall ?? true) === true)
+    ? defaultNpmInstallCommand
+    : undefined;
+}
+
+function resolvePostCommand(serviceNames: string[], deployConfig: DeployConfig): string[] {
+  return serviceNames.flatMap(serviceName => deployConfig.services[serviceName].postCommand ?? []);
+}
+
+function resolveServices(serviceNames: string[], ecosystemConfig: EcosystemConfig): DeployPlanService[] {
+  const apps = ecosystemAppByName(ecosystemConfig);
 
   return serviceNames.map(serviceName => {
     const app = apps.get(serviceName);
@@ -139,10 +188,6 @@ export function validateDeployConfig({ deployConfig, ecosystemConfig }: {
   deployConfig: DeployConfig;
   ecosystemConfig?: EcosystemConfig;
 }): void {
-  if (!ecosystemConfig) {
-    throw new Error('Deploy validation requires ecosystemConfig');
-  }
-
   if (!deployConfig || typeof deployConfig !== 'object') {
     throw new Error('Deploy config must be an object');
   }
@@ -151,32 +196,47 @@ export function validateDeployConfig({ deployConfig, ecosystemConfig }: {
     throw new Error('Deploy config must define hosts');
   }
 
-  validateEcosystemConfig(ecosystemConfig);
-  validateServices(deployConfig);
-  const apps = ecosystemConfig.apps ?? [];
+  const services = validateServices(deployConfig);
+  const apps = ecosystemConfig ? validateEcosystemConfig(ecosystemConfig) : [];
 
   for (const hostName of Object.keys(deployConfig.hosts)) {
     const plan = createDeployPlan({ hostName, ecosystemConfig, deployConfig });
 
-    for (const service of plan.services) {
+    if (plan.npmInstallCommand === defaultNpmInstallCommand && !plan.host.rsync.includes('package.json')) {
+      throw new Error(`Deploy host ${hostName} enables npmInstall, but rsync is missing package.json`);
+    }
+
+    if (plan.pm2Restart && !plan.host.rsync.includes(plan.pm2Restart.ecosystem)) {
+      throw new Error(`Deploy host ${hostName} enables pm2Restart, but rsync is missing ${plan.pm2Restart.ecosystem}`);
+    }
+
+    for (const service of plan.pm2Restart?.services ?? []) {
       const pm2App = apps.find(app => app.name === service.name);
       if (!pm2App) throw new Error(`Deploy service ${service.name} is missing from PM2 ecosystem apps`);
       if (!rsyncCoversPath(plan.host.rsync, pm2App.script)) {
         throw new Error(`Deploy host ${hostName} rsync is missing PM2 script: ${pm2App.script}`);
       }
     }
+
+    for (const serviceName of services) {
+      const service = deployConfig.services[serviceName];
+      if (!deployConfig.hosts[service.host]) throw new Error(`Deploy service ${serviceName} references unknown host: ${service.host}`);
+    }
   }
 }
 
-export function createDeployPlan({ hostName, ecosystemConfig, deployConfig }: {
+export function deployConfigNeedsEcosystemConfig(deployConfig: DeployConfig, serviceNames?: string[]): boolean {
+  if (!deployConfig?.services || typeof deployConfig.services !== 'object' || Array.isArray(deployConfig.services)) return false;
+  const services = serviceNames ? serviceNames.map(serviceName => deployConfig.services[serviceName]).filter(service => service) : Object.values(deployConfig.services);
+  return services.some(service => (service.pm2Restart ?? true) === true);
+}
+
+export function createDeployPlan({ hostName, serviceNames: selectedServiceNames, ecosystemConfig, deployConfig }: {
   hostName: string;
+  serviceNames?: string[];
   ecosystemConfig?: EcosystemConfig;
   deployConfig: DeployConfig;
 }): DeployPlan {
-  if (!ecosystemConfig) {
-    throw new Error('Deploy plan requires ecosystemConfig');
-  }
-
   if (!deployConfig?.hosts || typeof deployConfig.hosts !== 'object') {
     throw new Error('Deploy config must define hosts');
   }
@@ -187,8 +247,12 @@ export function createDeployPlan({ hostName, ecosystemConfig, deployConfig }: {
   }
 
   validateHost(hostName, host);
-  const services = resolveServices(hostName, deployConfig, ecosystemConfig);
+  const serviceNames = serviceNamesForHost(hostName, deployConfig, selectedServiceNames);
+  const npmInstallCommand = resolveNpmInstallCommand(serviceNames, deployConfig);
+  const pm2Action = resolvePm2Action(hostName, serviceNames, deployConfig, ecosystemConfig);
+  const services = pm2Action ? resolveServices(pm2Action.serviceNames, ecosystemConfig as EcosystemConfig) : [];
   const envFiles = uniqueValues(services.map(service => service.envFile));
+  const postCommand = resolvePostCommand(serviceNames, deployConfig);
 
   for (const envFile of envFiles) {
     if (!host.rsync.includes(envFile)) {
@@ -201,6 +265,13 @@ export function createDeployPlan({ hostName, ecosystemConfig, deployConfig }: {
     host,
     services,
     envFiles,
+    npmInstallCommand,
+    pm2Restart: pm2Action ? {
+      ecosystem: pm2Action.ecosystem,
+      services,
+      save: pm2Action.save,
+    } : undefined,
+    postCommand,
   };
 }
 

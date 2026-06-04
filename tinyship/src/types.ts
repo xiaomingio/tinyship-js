@@ -29,6 +29,9 @@ export type DeployHost = {
 
 export type DeployService = {
   host: string;
+  npmInstall?: boolean;
+  pm2Restart?: boolean;
+  postCommand?: string[];
 };
 
 export type DeployConfig = {
@@ -47,6 +50,13 @@ export type DeployPlan = {
   host: DeployHost;
   services: DeployPlanService[];
   envFiles: string[];
+  npmInstallCommand?: string;
+  pm2Restart?: {
+    ecosystem: string;
+    services: DeployPlanService[];
+    save: boolean;
+  };
+  postCommand: string[];
 };
 
 export type ValidationCheck = {
