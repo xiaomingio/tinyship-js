@@ -229,6 +229,10 @@ npm install
 npm run typecheck
 ```
 
+## 发布流程
+
+package 发布流程见 [docs/release.md](docs/release.md)。
+
 ## License
 
 ISC

@@ -229,6 +229,10 @@ npm install
 npm run typecheck
 ```
 
+## Release Workflow
+
+See [docs/release.md](docs/release.md) for the package release workflow.
+
 ## License
 
 ISC
