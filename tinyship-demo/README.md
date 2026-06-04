@@ -54,8 +54,10 @@ npm run build
 npm run deploy:validate
 npm run deploy:preflight
 npm run deploy:dry-run
-npm run deploy:all
+npm run deploy -- all
 ```
+
+By default, the demo uses the installed `@xiaomingio/tinyship` package through the normal `tinyship` binary. Run `npm run tinyship:local:on` to hook `node_modules/.bin/tinyship` to the local `../tinyship` package, and run `npm run tinyship:local:off` to restore the installed package binary.
 
 The full deployment flow requires SSH to `localhost`, `rsync`, `npm`, and `pm2` on the same machine. On macOS, enable Remote Login in System Settings. On Linux, start the local SSH server and make sure the current user can run `ssh localhost` without an interactive password prompt.
 
@@ -69,14 +71,14 @@ npm --version
 pm2 --version
 ```
 
-If `ssh localhost` asks for a password or fails, configure local SSH keys before running `npm run deploy:all`. If `pm2 --version` fails, install PM2 on the local machine first.
+If `ssh localhost` asks for a password or fails, configure local SSH keys before running `npm run deploy -- all`. If `pm2 --version` fails, install PM2 on the local machine first.
 
 You can deploy each localhost target separately:
 
 ```bash
-npm run deploy:frontend
-npm run deploy:backend
-npm run deploy:user
+npm run deploy -- host frontend
+npm run deploy -- host backend
+npm run deploy -- service tinyship-demo-user
 ```
 
 TinyShip deploys into `/tmp/tinyship-demo/frontend` and `/tmp/tinyship-demo/backend`, which works on both macOS and Linux.

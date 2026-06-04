@@ -10,13 +10,12 @@
     "start:admin": "node dist/frontend/admin.js",
     "start:backend": "node dist/backend/api.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "tinyship:local:on": "node scripts/tinyship-local.mjs on",
+    "tinyship:local:off": "node scripts/tinyship-local.mjs off",
+    "deploy": "tinyship deploy",
     "deploy:validate": "tinyship validate",
     "deploy:preflight": "tinyship preflight",
-    "deploy:dry-run": "tinyship dry-run all",
-    "deploy:all": "tinyship deploy all",
-    "deploy:frontend": "tinyship deploy host frontend",
-    "deploy:backend": "tinyship deploy host backend",
-    "deploy:user": "tinyship deploy service tinyship-demo-user"
+    "deploy:dry-run": "tinyship dry-run all"
   },
   "dependencies": {
     "@xiaomingio/tinyship-env": "^0.1.0",

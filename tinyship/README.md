@@ -22,9 +22,12 @@ npm install @xiaomingio/tinyship-env
 | --- | --- |
 | `tinyship validate` | Validate config, PM2 apps, env files, and local upload paths |
 | `tinyship preflight` | Check SSH, remote tools, directory permissions, and local rsync |
-| `tinyship dry-run <hostName>` | Preview deployment commands for one host |
+| `tinyship deploy` | Print usage plus configured hosts and services without deploying |
+| `tinyship dry-run host <hostName>` | Preview deployment commands for one host |
+| `tinyship dry-run service <serviceName>` | Preview deployment commands for one service |
 | `tinyship dry-run all` | Preview deployment commands for all hosts |
-| `tinyship deploy <hostName>` | Deploy one host |
+| `tinyship deploy host <hostName>` | Deploy one host and all services on it |
+| `tinyship deploy service <serviceName>` | Deploy one service |
 | `tinyship deploy all` | Deploy all hosts in config order |
 
 ## License

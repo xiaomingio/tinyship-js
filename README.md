@@ -187,13 +187,14 @@ Add this to your project's root `package.json`:
     "build": "node scripts/build.mjs",                  // Run your project's own build flow
     "deploy:validate": "tinyship validate",             // Validate config, enabled actions, env files, and local files
     "deploy:preflight": "tinyship preflight",           // Check SSH, remote tools, directory permissions, and local rsync
+    "deploy:targets": "tinyship deploy",                // Show configured hosts and services
     "deploy:dry-run": "tinyship dry-run all",           // Preview deployment commands for all hosts and services
-    "deploy:host-one": "tinyship deploy host demo-host-one", // Deploy one host and all services on it
-    "deploy:service-one": "tinyship deploy service demo-service-one", // Deploy one service
-    "deploy:all": "tinyship deploy all"                 // Deploy all hosts
+    "deploy": "tinyship deploy"                         // Pass target args with npm run deploy -- <args>
   }
 }
 ```
+
+Running `tinyship deploy` without a target prints the command usage plus a short list of configured hosts and services, then exits without deploying. Use `npm run deploy -- all`, `npm run deploy -- host demo-host-one`, or `npm run deploy -- service demo-service-one` to pass target arguments through npm.
 
 ## Server Requirements
 
@@ -216,6 +217,8 @@ Use `tinyship preflight` to check whether SSH, remote tools, and directory permi
 ## Complete Demo
 
 The demo project is in [tinyship-demo](tinyship-demo/README.md).
+
+The demo keeps normal project scripts such as `tinyship deploy`. For local package development, run `npm run tinyship:local:on` inside `tinyship-demo` to hook `node_modules/.bin/tinyship` to the repository's local `tinyship` package, and run `npm run tinyship:local:off` to restore the installed npm package.
 
 ## Local Development
 

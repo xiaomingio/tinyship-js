@@ -187,13 +187,14 @@ TinyShip 会按下面的规则加载 env 文件：
     "build": "node scripts/build.mjs",                  // 运行项目自己的构建流程
     "deploy:validate": "tinyship validate",             // 校验配置、启用的远程动作、env 文件和本地文件
     "deploy:preflight": "tinyship preflight",           // 检查 SSH、远程工具、目录权限和本地 rsync
+    "deploy:targets": "tinyship deploy",                // 显示已配置的 hosts 和 services
     "deploy:dry-run": "tinyship dry-run all",           // 预览全部 host 和 services 的发布命令
-    "deploy:host-one": "tinyship deploy host demo-host-one", // 发布一台 host 和它上面的全部 services
-    "deploy:service-one": "tinyship deploy service demo-service-one", // 只发布一个 service
-    "deploy:all": "tinyship deploy all"                 // 发布全部 host
+    "deploy": "tinyship deploy"                         // 通过 npm run deploy -- <args> 透传目标参数
   }
 }
 ```
+
+只运行 `tinyship deploy` 时，会输出命令用法和当前项目已配置的 hosts / services 摘要，然后退出，不会执行发布。可以用 `npm run deploy -- all`、`npm run deploy -- host demo-host-one` 或 `npm run deploy -- service demo-service-one` 透传目标参数。
 
 ## 服务器要求
 
@@ -216,6 +217,8 @@ TinyShip 会按下面的规则加载 env 文件：
 ## 完整 Demo
 
 Demo 项目在 [tinyship-demo](tinyship-demo/README.md)。
+
+Demo 保留普通项目写法，例如 `tinyship deploy`。本地开发 package 时，可以在 `tinyship-demo` 内运行 `npm run tinyship:local:on`，把 `node_modules/.bin/tinyship` hook 到仓库里的本地 `tinyship` package；运行 `npm run tinyship:local:off` 可恢复为已安装的 npm package。
 
 ## 本项目开发
 

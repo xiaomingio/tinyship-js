@@ -64,3 +64,59 @@ test('deploy command requires explicit host or service scope', async () => {
 
   assert.ok(errors.some(line => line.includes('tinyship deploy host <hostName>')));
 });
+
+test('bare deploy command prints configured hosts and services', async () => {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tinyship-cli-targets-'));
+  fs.writeFileSync(path.join(rootDir, 'tinyship.config.yml'), [
+    'hosts:',
+    '  frontend:',
+    '    ssh:',
+    '      target: deploy@example.com',
+    '    appDir: /var/www/frontend',
+    '    rsync:',
+    '      - dist/',
+    '      - package.json',
+    '  backend:',
+    '    ssh:',
+    '      user: deploy',
+    '      host: api.example.com',
+    '    appDir: /var/www/backend',
+    '    rsync:',
+    '      - dist/',
+    'services:',
+    '  web:',
+    '    host: frontend',
+    '    npmInstall: false',
+    '    pm2Restart: false',
+    '    postCommand: []',
+    '  api:',
+    '    host: backend',
+    '    postCommand:',
+    '      - systemctl reload nginx',
+  ].join('\n'));
+
+  const originalError = console.error;
+  const originalExit = process.exit;
+  const errors: string[] = [];
+  console.error = (message?: unknown) => {
+    errors.push(String(message));
+  };
+  process.exit = ((code?: string | number | null) => {
+    throw new Error(`exit ${code}`);
+  }) as typeof process.exit;
+
+  try {
+    await assert.rejects(() => main(['deploy'], rootDir), /exit 1/);
+  } finally {
+    console.error = originalError;
+    process.exit = originalExit;
+  }
+
+  assert.ok(errors.some(line => line.includes('tinyship deploy host <hostName>')));
+  assert.ok(errors.some(line => line.includes('Configured hosts:')));
+  assert.ok(errors.some(line => line.includes('frontend: ssh=deploy@example.com, appDir=/var/www/frontend, rsync=2, services=1')));
+  assert.ok(errors.some(line => line.includes('backend: ssh=deploy@api.example.com, appDir=/var/www/backend, rsync=1, services=1')));
+  assert.ok(errors.some(line => line.includes('Configured services:')));
+  assert.ok(errors.some(line => line.includes('web: host=frontend, npmInstall=false, pm2Restart=false, postCommand=0')));
+  assert.ok(errors.some(line => line.includes('api: host=backend, npmInstall=true, pm2Restart=true, postCommand=1')));
+});
