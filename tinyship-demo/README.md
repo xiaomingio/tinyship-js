@@ -40,11 +40,11 @@ tinyship-demo/
         └── api.js
 ```
 
-`tinyship-demo-user` is deployed to the `frontend` localhost target, uses `NODE_ENV=prod.tinyship-demo-user`, and loads `.env.prod.tinyship-demo-user`.
+`tinyship-demo-user` is deployed to the `frontend-host` localhost target, uses `NODE_ENV=prod.tinyship-demo-user`, and loads `.env.prod.tinyship-demo-user`.
 
-`tinyship-demo-admin` is deployed to the `frontend` localhost target, uses `NODE_ENV=prod.tinyship-demo-admin`, and loads `.env.prod.tinyship-demo-admin`.
+`tinyship-demo-admin` is deployed to the `frontend-host` localhost target, uses `NODE_ENV=prod.tinyship-demo-admin`, and loads `.env.prod.tinyship-demo-admin`.
 
-`tinyship-demo-backend` is deployed to the `backend` localhost target, uses `NODE_ENV=prod.tinyship-demo-backend`, and loads `.env.prod.tinyship-demo-backend`. Its `/api/env` endpoint returns the backend runtime env values.
+`tinyship-demo-backend` is deployed to the `backend-host` localhost target, uses `NODE_ENV=prod.tinyship-demo-backend`, and loads `.env.prod.tinyship-demo-backend`. Its `/api/env` endpoint returns the backend runtime env values.
 
 ## Commands
 
@@ -76,8 +76,8 @@ If `ssh localhost` asks for a password or fails, configure local SSH keys before
 You can deploy each localhost target separately:
 
 ```bash
-npm run deploy -- host frontend
-npm run deploy -- host backend
+npm run deploy -- host frontend-host
+npm run deploy -- host backend-host
 npm run deploy -- service tinyship-demo-user
 ```
 

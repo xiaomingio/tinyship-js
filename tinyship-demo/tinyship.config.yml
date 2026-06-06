@@ -1,5 +1,5 @@
 hosts:
-  frontend:
+  frontend-host:
     ssh:
       target: localhost
     appDir: /tmp/tinyship-demo/frontend
@@ -12,7 +12,7 @@ hosts:
       - .env.prod.tinyship-demo-user
       - .env.prod.tinyship-demo-admin
 
-  backend:
+  backend-host:
     ssh:
       target: localhost
     appDir: /tmp/tinyship-demo/backend
@@ -26,17 +26,17 @@ hosts:
 
 services:
   tinyship-demo-user:
-    host: frontend
+    host: frontend-host
     npmInstall: true
     pm2Restart: true
     postCommand: []
   tinyship-demo-admin:
-    host: frontend
+    host: frontend-host
     npmInstall: true
     pm2Restart: true
     postCommand: []
   tinyship-demo-backend:
-    host: backend
+    host: backend-host
     npmInstall: true
     pm2Restart: true
     postCommand: []
