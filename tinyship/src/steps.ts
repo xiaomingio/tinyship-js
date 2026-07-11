@@ -25,7 +25,7 @@ async function ensureRemoteDirs(plan: DeployPlan, rootDir: string, runner: Comma
 
 async function rsyncDeployPaths(plan: DeployPlan, rootDir: string, runner: CommandRunner): Promise<void> {
   const target = requireSshTarget(plan);
-  const sources = plan.host.rsync.map(path => path.replace(/\/+$/, ''));
+  const sources = plan.rsync.map(path => path.replace(/\/+$/, ''));
 
   await runner('rsync', [
     '-az',
@@ -55,8 +55,10 @@ async function npmInstall(plan: DeployPlan, rootDir: string, runner: CommandRunn
 
 async function pm2Restart(plan: DeployPlan, rootDir: string, runner: CommandRunner): Promise<void> {
   if (!plan.pm2Restart) return;
+  const serviceNames = plan.pm2Restart.services.map(service => service.name);
+  const only = serviceNames.join(',');
   await runRemoteCommand(plan, rootDir, runner, [
-    ...plan.pm2Restart.services.map(service => `pm2 startOrReload ${remoteShellQuote(plan.pm2Restart?.ecosystem ?? '')} --only ${remoteShellQuote(service.name)} --update-env`),
+    `pm2 startOrReload ${remoteShellQuote(plan.pm2Restart.ecosystem)} --only ${remoteShellQuote(only)} --update-env`,
     ...(plan.pm2Restart.save ? ['pm2 save'] : []),
   ]);
 }
@@ -86,7 +88,7 @@ export function createDeploySteps({ plan, deployConfig, ecosystemConfig, rootDir
   steps.push(
     {
       name: 'validate rsync files',
-      detail: plan.host.rsync.join(', '),
+      detail: plan.rsync.join(', '),
       run: () => validateDeployFiles({ deployConfig, ecosystemConfig, rootDir }),
     },
     {
@@ -96,7 +98,7 @@ export function createDeploySteps({ plan, deployConfig, ecosystemConfig, rootDir
     },
     {
       name: 'rsync deploy paths',
-      detail: `${plan.host.rsync.length} paths`,
+      detail: `${plan.rsync.length} paths`,
       run: () => rsyncDeployPaths(plan, rootDir, runner),
     },
   );

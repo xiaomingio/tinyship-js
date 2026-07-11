@@ -135,6 +135,5 @@ test('deploy steps run npm install once for multiple selected services on one ho
 
   assert.equal(commands.filter(([, args]) => args.some(arg => arg.includes('npm install --omit=dev'))).length, 1);
   assert.equal(commands.filter(([, args]) => args.some(arg => arg.includes('pm2 startOrReload'))).length, 1);
-  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('--only "example-server"'))));
-  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('--only "example-worker"'))));
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('--only "example-server,example-worker"'))));
 });

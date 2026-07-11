@@ -98,6 +98,89 @@ test('deploy plan can target one service while still using the host rsync list',
   assert.deepEqual(plan.host.rsync, deployConfig.hosts.web.rsync);
 });
 
+test('single-service deploy combines only host and selected service rsync paths', () => {
+  const deployConfig = {
+    hosts: {
+      web: {
+        ssh: { target: 'root@example.com' },
+        appDir: '/var/www/example',
+        rsync: ['package.json', 'ecosystem.config.cjs'],
+      },
+    },
+    services: {
+      'example-server': {
+        host: 'web',
+        rsync: ['apps/web/', 'apps/web/.env.production', 'ecosystem.config.cjs'],
+        npmInstall: true,
+        pm2Restart: true,
+        postCommand: [],
+      },
+      'example-worker': {
+        host: 'web',
+        rsync: ['apps/worker/', 'apps/worker/.env.production', 'ecosystem.config.cjs'],
+        npmInstall: false,
+        pm2Restart: true,
+        postCommand: [],
+      },
+    },
+  };
+  const ecosystemConfig = {
+    apps: [
+      { name: 'example-server', script: 'apps/web/dist/server.js', env: { NODE_ENV: 'production' } },
+      { name: 'example-worker', script: 'apps/worker/dist/worker.js', env: { NODE_ENV: 'production' } },
+    ],
+  };
+
+  const plan = createDeployPlan({ hostName: 'web', serviceNames: ['example-server'], ecosystemConfig, deployConfig });
+
+  assert.deepEqual(plan.rsync, ['package.json', 'ecosystem.config.cjs', 'apps/web/', 'apps/web/.env.production']);
+});
+
+test('host deploy combines all service rsync paths without duplicates', () => {
+  const deployConfig = {
+    hosts: {
+      web: {
+        ssh: { target: 'root@example.com' },
+        appDir: '/var/www/example',
+        rsync: ['package.json', 'ecosystem.config.cjs'],
+      },
+    },
+    services: {
+      'example-server': {
+        host: 'web',
+        rsync: ['apps/web/', 'apps/web/.env.production', 'ecosystem.config.cjs'],
+        npmInstall: true,
+        pm2Restart: true,
+        postCommand: [],
+      },
+      'example-worker': {
+        host: 'web',
+        rsync: ['apps/worker/', 'apps/worker/.env.production', 'ecosystem.config.cjs'],
+        npmInstall: false,
+        pm2Restart: true,
+        postCommand: [],
+      },
+    },
+  };
+  const ecosystemConfig = {
+    apps: [
+      { name: 'example-server', script: 'apps/web/dist/server.js', env: { NODE_ENV: 'production' } },
+      { name: 'example-worker', script: 'apps/worker/dist/worker.js', env: { NODE_ENV: 'production' } },
+    ],
+  };
+
+  const plan = createDeployPlan({ hostName: 'web', ecosystemConfig, deployConfig });
+
+  assert.deepEqual(plan.rsync, [
+    'package.json',
+    'ecosystem.config.cjs',
+    'apps/web/',
+    'apps/web/.env.production',
+    'apps/worker/',
+    'apps/worker/.env.production',
+  ]);
+});
+
 test('deploy validation requires ecosystem to be uploaded when pm2Restart is enabled', () => {
   assert.throws(
     () =>

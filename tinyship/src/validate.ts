@@ -114,7 +114,7 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
 
     for (const envFile of plan.envFiles) {
       check(`plan:${formatHost(hostName)}`, 'env listed', envFile, () => {
-        if (!plan.host.rsync.includes(envFile)) {
+        if (!plan.rsync.includes(envFile)) {
           throw new Error(`Deploy host ${hostName} rsync is missing required env file: ${envFile}`);
         }
       });
@@ -125,7 +125,7 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
       check(`plan:${formatHost(hostName)}`, 'script covered', formatService(service.name), () => {
         const app = ecosystemApps.find(item => item.name === service.name);
         if (!app) throw new Error(`Deploy service ${service.name} is missing from PM2 ecosystem apps`);
-        if (!rsyncCoversPath(plan.host.rsync, app.script)) {
+        if (!rsyncCoversPath(plan.rsync, app.script)) {
           throw new Error(`Deploy host ${hostName} rsync is missing PM2 script: ${app.script}`);
         }
         serviceScriptPaths.push(app.script);
@@ -136,7 +136,7 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
       ...(plan.pm2Restart ? [plan.pm2Restart.ecosystem] : []),
       ...(plan.npmInstallCommand === 'npm install --omit=dev' ? ['package.json'] : []),
     ];
-    for (const rsyncPath of uniqueValues([...plan.host.rsync, ...serviceScriptPaths, ...actionPaths])) {
+    for (const rsyncPath of uniqueValues([...plan.rsync, ...serviceScriptPaths, ...actionPaths])) {
       await checkAsync(`files:${formatHost(hostName)}`, 'rsync path exists', rsyncPath, async () => {
         await access(projectPath(rootDir, rsyncPath));
       });

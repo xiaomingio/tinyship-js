@@ -28,10 +28,10 @@ export async function assertRsyncPaths(plan: DeployPlan, ecosystemConfig: Ecosys
     ...(plan.npmInstallCommand === defaultNpmInstallCommand ? ['package.json'] : []),
     ...(plan.pm2Restart ? [plan.pm2Restart.ecosystem] : []),
   ];
-  const paths = uniqueValues([...plan.host.rsync, ...serviceScripts, ...actionPaths]);
+  const paths = uniqueValues([...plan.rsync, ...serviceScripts, ...actionPaths]);
 
   for (const path of paths) {
-    if (!rsyncCoversPath(plan.host.rsync, path)) {
+    if (!rsyncCoversPath(plan.rsync, path)) {
       throw new Error(`Deploy host ${plan.name} rsync is missing PM2 script: ${path}`);
     }
 

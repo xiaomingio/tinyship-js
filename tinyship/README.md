@@ -12,6 +12,8 @@ npm install -D @xiaomingio/tinyship
 
 For PM2 services, use standard `NODE_ENV=production` and Node's native `--env-file=apps/<service>/.env.production`. TinyShip derives and validates that env path from the PM2 script path; application code only reads `process.env`.
 
+Put shared deploy paths in `host.rsync` and app-specific paths in `service.rsync`. TinyShip merges and deduplicates selected paths, then runs rsync once per host.
+
 ## Commands
 
 | Command | Purpose |

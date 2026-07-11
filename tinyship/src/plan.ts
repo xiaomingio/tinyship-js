@@ -6,6 +6,10 @@ import { defaultNpmInstallCommand, ecosystemFile, productionEnvFileForScript, re
 import type { DeployConfig, DeployHost, DeployPlan, DeployPlanService, EcosystemApp, EcosystemConfig } from './types.js';
 
 function validateServiceActions(serviceName: string, service: DeployConfig['services'][string]): void {
+  if (service.rsync !== undefined && (!Array.isArray(service.rsync) || service.rsync.some(path => typeof path !== 'string' || path.length === 0))) {
+    throw new Error(`Deploy service ${serviceName} rsync must be an array of non-empty strings`);
+  }
+
   if (service.npmInstall !== undefined && typeof service.npmInstall !== 'boolean') {
     throw new Error(`Deploy service ${serviceName} npmInstall must be a boolean`);
   }
@@ -123,6 +127,13 @@ function resolvePostCommand(serviceNames: string[], deployConfig: DeployConfig):
   return serviceNames.flatMap(serviceName => deployConfig.services[serviceName].postCommand ?? []);
 }
 
+function resolveRsyncPaths(host: DeployHost, serviceNames: string[], deployConfig: DeployConfig): string[] {
+  return uniqueValues([
+    ...host.rsync,
+    ...serviceNames.flatMap(serviceName => deployConfig.services[serviceName].rsync ?? []),
+  ]);
+}
+
 function resolveServices(serviceNames: string[], ecosystemConfig: EcosystemConfig): DeployPlanService[] {
   const apps = ecosystemAppByName(ecosystemConfig);
 
@@ -202,18 +213,18 @@ export function validateDeployConfig({ deployConfig, ecosystemConfig }: {
   for (const hostName of Object.keys(deployConfig.hosts)) {
     const plan = createDeployPlan({ hostName, ecosystemConfig, deployConfig });
 
-    if (plan.npmInstallCommand === defaultNpmInstallCommand && !plan.host.rsync.includes('package.json')) {
+    if (plan.npmInstallCommand === defaultNpmInstallCommand && !plan.rsync.includes('package.json')) {
       throw new Error(`Deploy host ${hostName} enables npmInstall, but rsync is missing package.json`);
     }
 
-    if (plan.pm2Restart && !plan.host.rsync.includes(plan.pm2Restart.ecosystem)) {
+    if (plan.pm2Restart && !plan.rsync.includes(plan.pm2Restart.ecosystem)) {
       throw new Error(`Deploy host ${hostName} enables pm2Restart, but rsync is missing ${plan.pm2Restart.ecosystem}`);
     }
 
     for (const service of plan.pm2Restart?.services ?? []) {
       const pm2App = apps.find(app => app.name === service.name);
       if (!pm2App) throw new Error(`Deploy service ${service.name} is missing from PM2 ecosystem apps`);
-      if (!rsyncCoversPath(plan.host.rsync, pm2App.script)) {
+      if (!rsyncCoversPath(plan.rsync, pm2App.script)) {
         throw new Error(`Deploy host ${hostName} rsync is missing PM2 script: ${pm2App.script}`);
       }
     }
@@ -248,6 +259,7 @@ export function createDeployPlan({ hostName, serviceNames: selectedServiceNames,
 
   validateHost(hostName, host);
   const serviceNames = serviceNamesForHost(hostName, deployConfig, selectedServiceNames);
+  const rsync = resolveRsyncPaths(host, serviceNames, deployConfig);
   const npmInstallCommand = resolveNpmInstallCommand(serviceNames, deployConfig);
   const pm2Action = resolvePm2Action(hostName, serviceNames, deployConfig, ecosystemConfig);
   const services = pm2Action ? resolveServices(pm2Action.serviceNames, ecosystemConfig as EcosystemConfig) : [];
@@ -255,7 +267,7 @@ export function createDeployPlan({ hostName, serviceNames: selectedServiceNames,
   const postCommand = resolvePostCommand(serviceNames, deployConfig);
 
   for (const envFile of envFiles) {
-    if (!host.rsync.includes(envFile)) {
+    if (!rsync.includes(envFile)) {
       throw new Error(`Deploy host ${hostName} rsync is missing required env file: ${envFile}`);
     }
   }
@@ -263,6 +275,7 @@ export function createDeployPlan({ hostName, serviceNames: selectedServiceNames,
   return {
     name: hostName,
     host,
+    rsync,
     services,
     envFiles,
     npmInstallCommand,

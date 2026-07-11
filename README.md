@@ -48,8 +48,6 @@ hosts:
       target: deploy@example.com # SSH alias or user@host
     appDir: /var/www/example     # Project directory on the server
     rsync:                       # File list deployed to this host
-      - apps/service-one/
-      - apps/service-two/
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -63,7 +61,6 @@ hosts:
       identityFile: ~/.ssh/id_demo  # Optional private key path
     appDir: /var/www/example
     rsync:
-      - apps/service-three/
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -72,35 +69,45 @@ hosts:
 services:
   demo-service-one:     # Service name, must match the PM2 app name
     host: demo-host-one # Deploys to hosts.demo-host-one
+    rsync:              # Files needed only by this service
+      - apps/service-one/
+      - apps/service-one/.env.production
     npmInstall: true    # If any selected service on a host enables this, npm install runs once for that host
     pm2Restart: true    # Restarts only this service with PM2
     postCommand: []     # Custom commands for this service
   demo-service-two:
     host: demo-host-one
+    rsync:
+      - apps/service-two/
+      - apps/service-two/.env.production
     npmInstall: false
     pm2Restart: true
     postCommand:
       - printf demo-service-two-deployed
   demo-service-three:
     host: demo-host-two
+    rsync:
+      - apps/service-three/
+      - apps/service-three/.env.production
     npmInstall: true
     pm2Restart: true
 ```
 
-`rsync` runs from the project root with relative paths preserved. You can list the whole `dist/` directory or only the subdirectory that contains a host's PM2 scripts, for example `dist/demo-service-three/` deploys to `<appDir>/dist/demo-service-three/`.
+`rsync` runs from the project root with relative paths preserved. Shared paths belong to the host; app paths belong to the service.
 
 Action fields use this shape:
 
 ```ts
 type TinyShipService = {
   host: string; // References hosts.<hostName>
+  rsync?: string[]; // Files added only when this service is selected
   npmInstall?: boolean; // true runs npm install --omit=dev and requires package.json in rsync
   pm2Restart?: boolean; // true uses ecosystem.config.cjs and pm2 save for this service
   postCommand?: string[]; // Commands run on the remote host from appDir after npmInstall and pm2Restart for this service
 };
 ```
 
-`rsync` belongs to the host and runs once for each selected host. `npmInstall`, `pm2Restart`, and `postCommand` belong to services. When deploying a single service, TinyShip still rsyncs that service's host, runs npm install only if the selected service enables `npmInstall`, restarts only the selected PM2 service, and runs only the selected service's `postCommand`.
+Host `rsync` contains shared files. Service `rsync` contains service-specific files. TinyShip merges both lists, removes duplicate paths, and runs rsync once per selected host. A single-service deploy includes only the host list and that service's list; host/all deploys include every selected service on that host.
 
 `npmInstall` is only for npm dependency installation. If any selected service on a host enables it, TinyShip runs `npm install --omit=dev` once for that host and checks that `package.json` is included in the host `rsync`.
 

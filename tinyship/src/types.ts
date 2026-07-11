@@ -29,6 +29,7 @@ export type DeployHost = {
 
 export type DeployService = {
   host: string;
+  rsync?: string[];
   npmInstall?: boolean;
   pm2Restart?: boolean;
   postCommand?: string[];
@@ -48,6 +49,7 @@ export type DeployPlanService = {
 export type DeployPlan = {
   name: string;
   host: DeployHost;
+  rsync: string[];
   services: DeployPlanService[];
   envFiles: string[];
   npmInstallCommand?: string;

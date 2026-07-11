@@ -4,10 +4,6 @@ hosts:
       target: localhost
     appDir: /tmp/tinyship-demo/frontend
     rsync:
-      - apps/user/
-      - apps/admin/
-      - apps/user/.env.production
-      - apps/admin/.env.production
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -18,8 +14,6 @@ hosts:
       target: localhost
     appDir: /tmp/tinyship-demo/backend
     rsync:
-      - apps/backend/
-      - apps/backend/.env.production
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -28,16 +22,25 @@ hosts:
 services:
   tinyship-demo-user:
     host: frontend-host
+    rsync:
+      - apps/user/
+      - apps/user/.env.production
     npmInstall: true
     pm2Restart: true
     postCommand: []
   tinyship-demo-admin:
     host: frontend-host
+    rsync:
+      - apps/admin/
+      - apps/admin/.env.production
     npmInstall: true
     pm2Restart: true
     postCommand: []
   tinyship-demo-backend:
     host: backend-host
+    rsync:
+      - apps/backend/
+      - apps/backend/.env.production
     npmInstall: true
     pm2Restart: true
     postCommand: []

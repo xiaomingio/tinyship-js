@@ -48,8 +48,6 @@ hosts:
       target: deploy@example.com # SSH alias 或 user@host
     appDir: /var/www/example     # 服务器上的项目目录
     rsync:                       # 发布到这个 host 的文件清单
-      - apps/service-one/
-      - apps/service-two/
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -63,7 +61,6 @@ hosts:
       identityFile: ~/.ssh/id_demo  # 可选私钥路径
     appDir: /var/www/example
     rsync:
-      - apps/service-three/
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
@@ -72,35 +69,45 @@ hosts:
 services:
   demo-service-one:     # service 名，需要和 PM2 app name 一致
     host: demo-host-one # 发布到 hosts.demo-host-one
+    rsync:              # 仅该 service 需要的文件
+      - apps/service-one/
+      - apps/service-one/.env.production
     npmInstall: true    # 当前 host 上选中的 services 只要有一个启用，就执行一次 npm install
     pm2Restart: true    # 只用 PM2 重启这个 service
     postCommand: []     # 这个 service 的自定义命令
   demo-service-two:
     host: demo-host-one
+    rsync:
+      - apps/service-two/
+      - apps/service-two/.env.production
     npmInstall: false
     pm2Restart: true
     postCommand:
       - printf demo-service-two-deployed
   demo-service-three:
     host: demo-host-two
+    rsync:
+      - apps/service-three/
+      - apps/service-three/.env.production
     npmInstall: true
     pm2Restart: true
 ```
 
-`rsync` 会从项目根目录发起，并保留相对路径。你可以列出整个 `dist/`，也可以只列出包含某台 host 的 PM2 script 的子目录，例如 `dist/demo-service-three/` 会发布到 `<appDir>/dist/demo-service-three/`。
+`rsync` 从项目根目录发起并保留相对路径。公共路径放在 host，应用路径放在 service。
 
 远程动作字段使用下面的结构：
 
 ```ts
 type TinyShipService = {
   host: string; // 指向 hosts.<hostName>
+  rsync?: string[]; // 仅在选中该 service 时加入的文件
   npmInstall?: boolean; // true 执行 npm install --omit=dev，并要求 package.json 在 rsync 中
   pm2Restart?: boolean; // true 使用 ecosystem.config.cjs 和 pm2 save 重启这个 service
   postCommand?: string[]; // 在远程 appDir 中执行，顺序在这个 service 的 npmInstall 和 pm2Restart 之后
 };
 ```
 
-`rsync` 属于 host，每个选中的 host 只执行一次。`npmInstall`、`pm2Restart` 和 `postCommand` 属于 services。只发布单个 service 时，TinyShip 仍会执行该 service 所在 host 的 `rsync`，只在这个 service 启用 `npmInstall` 时执行 npm install，只重启这个 PM2 service，也只执行这个 service 的 `postCommand`。
+host 的 `rsync` 放公共文件，service 的 `rsync` 放专属文件。TinyShip 合并清单并去重，每个选中的 host 只执行一次 rsync。单 service 发布只包含 host 清单和该 service 清单；host/all 发布包含该 host 上所有选中 service 的清单。
 
 `npmInstall` 只表示 npm 依赖安装。当前 host 上选中的 services 只要有一个启用它，TinyShip 就会在该 host 执行一次 `npm install --omit=dev`，并检查 `package.json` 是否包含在 host 的 `rsync` 中。
 

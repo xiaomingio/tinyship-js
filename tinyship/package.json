@@ -1,6 +1,6 @@
 {
   "name": "@xiaomingio/tinyship",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Tiny deploy/runtime toolkit for Node.js and PM2 projects.",
   "license": "ISC",
   "homepage": "https://xiaoming.io",
