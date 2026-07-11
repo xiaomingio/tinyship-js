@@ -222,10 +222,6 @@ Demo 保留普通项目写法，例如 `tinyship deploy`。本地开发 package 
 cd tinyship
 npm install
 npm test
-
-cd ../tinyship-env
-npm install
-npm run typecheck
 ```
 
 ## 发布流程

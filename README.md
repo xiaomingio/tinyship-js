@@ -222,10 +222,6 @@ The demo keeps normal project scripts such as `tinyship deploy`. For local packa
 cd tinyship
 npm install
 npm test
-
-cd ../tinyship-env
-npm install
-npm run typecheck
 ```
 
 ## Release Workflow
