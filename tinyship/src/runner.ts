@@ -1,12 +1,12 @@
 /**
  * 文件说明: 执行 TinyShip 发布计划，按 steps.ts 中定义的步骤发布单台或全部 host。
  */
-import { defaultRootDir, loadDeployConfig, loadEcosystemConfig, sshTarget } from './config.js';
+import { defaultRootDir, loadDeployConfig, loadDeployEcosystemConfigs, sshTarget } from './config.js';
 import { createDeployPlan, deployConfigNeedsEcosystemConfig } from './plan.js';
 import { dryRun } from './run.js';
 import { createDeploySteps } from './steps.js';
 import { assertValidationReport } from './validate.js';
-import type { CommandRunner, DeployConfig, EcosystemConfig } from './types.js';
+import type { CommandRunner, DeployConfig, EcosystemConfigSource } from './types.js';
 
 const color = {
   cyan: '\u001b[36m',
@@ -33,7 +33,7 @@ async function runHostDeployment({ hostName, serviceNames, deployConfig, ecosyst
   hostName: string;
   serviceNames?: string[];
   deployConfig: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
   runner?: CommandRunner;
   dryRunMode?: boolean;
@@ -67,15 +67,15 @@ async function runHostDeployment({ hostName, serviceNames, deployConfig, ecosyst
   }
 }
 
-async function loadEcosystemConfigIfNeeded(deployConfig: DeployConfig, ecosystemConfig: EcosystemConfig | undefined, rootDir: string, serviceNames?: string[]): Promise<EcosystemConfig | undefined> {
+async function loadEcosystemConfigIfNeeded(deployConfig: DeployConfig, ecosystemConfig: EcosystemConfigSource | undefined, rootDir: string, serviceNames?: string[]): Promise<EcosystemConfigSource | undefined> {
   if (ecosystemConfig || !deployConfigNeedsEcosystemConfig(deployConfig, serviceNames)) return ecosystemConfig;
-  return loadEcosystemConfig(undefined, rootDir);
+  return loadDeployEcosystemConfigs(deployConfig, rootDir);
 }
 
 export async function deployHost({ hostName, deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   hostName: string;
   deployConfig?: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 }): Promise<void> {
   deployConfig ??= await loadDeployConfig('tinyship.config.yml', rootDir);
@@ -86,7 +86,7 @@ export async function deployHost({ hostName, deployConfig, ecosystemConfig, root
 export async function deployService({ serviceName, deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   serviceName: string;
   deployConfig?: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 }): Promise<void> {
   deployConfig ??= await loadDeployConfig('tinyship.config.yml', rootDir);
@@ -98,7 +98,7 @@ export async function deployService({ serviceName, deployConfig, ecosystemConfig
 
 export async function deployAll({ deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   deployConfig?: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 } = {}): Promise<void> {
   deployConfig ??= await loadDeployConfig('tinyship.config.yml', rootDir);
@@ -112,7 +112,7 @@ export async function deployAll({ deployConfig, ecosystemConfig, rootDir = defau
 export async function dryRunHost({ hostName, deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   hostName: string;
   deployConfig?: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 }): Promise<void> {
   deployConfig ??= await loadDeployConfig('tinyship.config.yml', rootDir);
@@ -123,7 +123,7 @@ export async function dryRunHost({ hostName, deployConfig, ecosystemConfig, root
 export async function dryRunService({ serviceName, deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   serviceName: string;
   deployConfig?: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 }): Promise<void> {
   deployConfig ??= await loadDeployConfig('tinyship.config.yml', rootDir);
@@ -135,7 +135,7 @@ export async function dryRunService({ serviceName, deployConfig, ecosystemConfig
 
 export async function dryRunAll({ deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   deployConfig?: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 } = {}): Promise<void> {
   deployConfig ??= await loadDeployConfig('tinyship.config.yml', rootDir);

@@ -4,9 +4,9 @@
  */
 import { access } from 'node:fs/promises';
 
-import { defaultRootDir, productionEnvFileForScript, projectPath, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
-import { createDeployPlan, deployConfigNeedsEcosystemConfig, listDeployServices, validateEcosystemConfig, validateHost } from './plan.js';
-import type { DeployConfig, EcosystemApp, EcosystemConfig, ValidationCheck, ValidationReport } from './types.js';
+import { defaultRootDir, envFileForApp, projectPath, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
+import { createDeployPlan, deployConfigNeedsEcosystemConfig, ecosystemConfigForHost, listDeployServices, validateEcosystemConfig, validateHost } from './plan.js';
+import type { DeployConfig, EcosystemConfigSource, ValidationCheck, ValidationReport } from './types.js';
 
 const color = {
   bold: '\u001b[1m',
@@ -47,7 +47,7 @@ function formatDetail(detail: string | undefined): string {
 
 export async function createValidationReport({ deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   deployConfig: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 }): Promise<ValidationReport> {
   const checks: ValidationCheck[] = [];
@@ -84,12 +84,9 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
   }) ?? [];
 
   const needsEcosystem = check('config', 'deploy actions', 'enabled npmInstall, pm2Restart, and postCommand actions', () => deployConfigNeedsEcosystemConfig(deployConfig)) ?? true;
-  const ecosystemApps: EcosystemApp[] = needsEcosystem
-    ? check('config', 'ecosystem apps', 'enabled pm2Restart requires PM2 apps', () => {
-      if (!ecosystemConfig) throw new Error('Deploy validation requires ecosystemConfig');
-      return validateEcosystemConfig(ecosystemConfig);
-    }) ?? []
-    : [];
+  if (needsEcosystem) check('config', 'ecosystem apps', 'enabled pm2Restart requires PM2 apps', () => {
+    if (!ecosystemConfig) throw new Error('Deploy validation requires ecosystemConfig');
+  });
   const services = check('config', 'deploy config services', 'services map service names to hosts', () => listDeployServices(deployConfig)) ?? [];
 
   for (const hostName of hosts) {
@@ -101,7 +98,9 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
     const serviceConfig = deployConfig.services?.[serviceName];
     if ((serviceConfig?.pm2Restart ?? true) === false) continue;
     check('services', formatService(serviceName), `host=${formatHost(hostName)}`, () => {
-      const app = ecosystemApps.find(item => item.name === serviceName);
+      const ecosystemApps = validateEcosystemConfig(ecosystemConfigForHost(hostName, deployConfig, ecosystemConfig) ?? {});
+      const pm2AppName = serviceConfig?.pm2App ?? serviceName;
+      const app = ecosystemApps.find(item => item.name === pm2AppName);
       if (!app) throw new Error(`Deploy service ${serviceName} is missing from PM2 ecosystem apps`);
       if (!app.env?.NODE_ENV) throw new Error(`PM2 service ${serviceName} is missing env.NODE_ENV`);
       return app;
@@ -109,6 +108,8 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
   }
 
   for (const hostName of hosts) {
+    const hostEcosystemConfig = ecosystemConfigForHost(hostName, deployConfig, ecosystemConfig);
+    const ecosystemApps = hostEcosystemConfig ? validateEcosystemConfig(hostEcosystemConfig) : [];
     const plan = check(`plan:${formatHost(hostName)}`, 'create plan', 'services, NODE_ENV, env files', () => createDeployPlan({ hostName, ecosystemConfig, deployConfig }));
     if (!plan) continue;
 
@@ -154,13 +155,15 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
     })),
     services: services.map(serviceName => {
       const service = deployConfig.services?.[serviceName];
-      const app = ecosystemApps.find(item => item.name === serviceName);
+      const serviceEcosystemConfig = service ? ecosystemConfigForHost(service.host, deployConfig, ecosystemConfig) : undefined;
+      const ecosystemApps = serviceEcosystemConfig ? validateEcosystemConfig(serviceEcosystemConfig) : [];
+      const app = ecosystemApps.find(item => item.name === (service?.pm2App ?? serviceName));
       return {
         name: serviceName,
         host: service?.host,
         nodeEnv: app?.env?.NODE_ENV,
         script: app?.script,
-        envFile: app?.script ? productionEnvFileForScript(app.script) : undefined,
+        envFile: app?.script ? envFileForApp(app) : undefined,
       };
     }),
     checks,
@@ -169,7 +172,7 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
 
 export async function assertValidationReport({ deployConfig, ecosystemConfig, rootDir = defaultRootDir }: {
   deployConfig: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
 }): Promise<void> {
   const report = await createValidationReport({ deployConfig, ecosystemConfig, rootDir });

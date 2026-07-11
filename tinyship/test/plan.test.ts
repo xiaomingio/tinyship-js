@@ -328,3 +328,51 @@ test('deploy validation requires PM2 scripts to be covered by rsync', () => {
     /server\.js/,
   );
 });
+
+test('host ecosystem and service pm2App select an aliased PM2 deployment', () => {
+  const production = exampleEcosystemConfig();
+  const staging = exampleEcosystemConfig();
+  staging.apps![0]!.node_args = '--env-file=.env.staging';
+  const deployConfig = exampleDeployConfig({ hostName: 'staging' });
+  deployConfig.hosts.staging!.ecosystem = 'ecosystem.staging.config.cjs';
+  deployConfig.hosts.staging!.rsync = ['dist/', 'package.json', 'package-lock.json', 'ecosystem.staging.config.cjs', 'tinyship.config.yml', '.env.staging'];
+  deployConfig.services = {
+    'staging-example-server': {
+      host: 'staging',
+      pm2App: 'example-server',
+      npmInstall: true,
+      pm2Restart: true,
+      postCommand: [],
+    },
+  };
+
+  const plan = createDeployPlan({
+    hostName: 'staging',
+    deployConfig,
+    ecosystemConfig: {
+      'ecosystem.config.cjs': production,
+      'ecosystem.staging.config.cjs': staging,
+    },
+  });
+
+  assert.equal(plan.pm2Restart?.ecosystem, 'ecosystem.staging.config.cjs');
+  assert.deepEqual(plan.pm2Restart?.services.map(service => service.name), ['example-server']);
+  assert.deepEqual(plan.pm2Restart?.services.map(service => service.deployService), ['staging-example-server']);
+  assert.deepEqual(plan.envFiles, ['.env.staging']);
+});
+
+test('deploy validation rejects empty ecosystem and pm2App names', () => {
+  const emptyEcosystemConfig = exampleDeployConfig();
+  emptyEcosystemConfig.hosts.web!.ecosystem = '';
+  assert.throws(() => validateDeployConfig({
+    deployConfig: emptyEcosystemConfig,
+    ecosystemConfig: exampleEcosystemConfig(),
+  }), /ecosystem must be a non-empty string/);
+
+  const emptyPm2AppConfig = exampleDeployConfig();
+  emptyPm2AppConfig.services['example-server']!.pm2App = '';
+  assert.throws(() => validateDeployConfig({
+    deployConfig: emptyPm2AppConfig,
+    ecosystemConfig: exampleEcosystemConfig(),
+  }), /pm2App must be a non-empty string/);
+});

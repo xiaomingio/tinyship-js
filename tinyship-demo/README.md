@@ -16,6 +16,7 @@ This is a minimal multi-service demo project that exercises the full TinyShip de
 tinyship-demo/
 ├── tinyship.config.yml
 ├── ecosystem.config.cjs
+├── ecosystem.staging.config.cjs
 ├── apps/
 │   ├── user/
 │   │   ├── src/user.ts
@@ -48,6 +49,8 @@ Each service owns its source, package metadata, and `dist`. TinyShip publishes o
 `tinyship-demo-admin` loads `apps/admin/.env.production` using the same process boundary.
 
 `tinyship-demo-backend` loads `apps/backend/.env.production`. All three services use `NODE_ENV=production`; application code only reads `process.env`.
+
+`staging-tinyship-demo-user` demonstrates deploying the same `tinyship-demo-user` PM2 app to another host. The staging host selects `ecosystem.staging.config.cjs`, while `pm2App` maps the deployment target back to the existing PM2 app name. Its rsync list explicitly includes `apps/user/.env.staging`.
 
 ## Commands
 
@@ -82,6 +85,7 @@ You can deploy each localhost target separately:
 npm run deploy -- host frontend-host
 npm run deploy -- host backend-host
 npm run deploy -- service tinyship-demo-user
+npm run deploy -- service staging-tinyship-demo-user
 ```
 
 TinyShip deploys into `/tmp/tinyship-demo/frontend` and `/tmp/tinyship-demo/backend`, which works on both macOS and Linux.

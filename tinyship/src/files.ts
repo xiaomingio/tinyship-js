@@ -5,8 +5,8 @@
 import { access } from 'node:fs/promises';
 
 import { defaultNpmInstallCommand, projectPath, rsyncCoversPath, uniqueValues } from './config.js';
-import { createDeployPlan, validateDeployConfig } from './plan.js';
-import type { DeployConfig, DeployPlan, EcosystemConfig } from './types.js';
+import { createDeployPlan, ecosystemConfigForHost, validateDeployConfig } from './plan.js';
+import type { DeployConfig, DeployPlan, EcosystemConfig, EcosystemConfigSource } from './types.js';
 
 export async function assertEnvFiles(plan: DeployPlan, rootDir: string): Promise<void> {
   for (const envFile of plan.envFiles) {
@@ -45,15 +45,16 @@ export async function assertRsyncPaths(plan: DeployPlan, ecosystemConfig: Ecosys
 
 export async function validateDeployFiles({ deployConfig, ecosystemConfig, rootDir }: {
   deployConfig: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir: string;
 }): Promise<void> {
   validateDeployConfig({ deployConfig, ecosystemConfig });
 
   for (const hostName of Object.keys(deployConfig.hosts)) {
     const plan = createDeployPlan({ hostName, ecosystemConfig, deployConfig });
+    const hostEcosystemConfig = ecosystemConfigForHost(hostName, deployConfig, ecosystemConfig);
     await assertEnvFiles(plan, rootDir);
-    if (plan.pm2Restart && !ecosystemConfig) throw new Error(`Deploy host ${hostName} enables pm2Restart, but ecosystem config was not loaded`);
-    await assertRsyncPaths(plan, ecosystemConfig ?? { apps: [] }, rootDir);
+    if (plan.pm2Restart && !hostEcosystemConfig) throw new Error(`Deploy host ${hostName} enables pm2Restart, but ecosystem config was not loaded`);
+    await assertRsyncPaths(plan, hostEcosystemConfig ?? { apps: [] }, rootDir);
   }
 }

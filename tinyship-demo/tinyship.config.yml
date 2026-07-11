@@ -19,6 +19,17 @@ hosts:
       - ecosystem.config.cjs
       - tinyship.config.yml
 
+  staging-host:
+    ssh:
+      target: localhost
+    appDir: /tmp/tinyship-demo/staging
+    ecosystem: ecosystem.staging.config.cjs
+    rsync:
+      - package.json
+      - package-lock.json
+      - ecosystem.staging.config.cjs
+      - tinyship.config.yml
+
 services:
   tinyship-demo-user:
     host: frontend-host
@@ -44,6 +55,16 @@ services:
       - apps/backend/package.json
       - apps/backend/dist
       - apps/backend/.env.production
+    npmInstall: true
+    pm2Restart: true
+    postCommand: []
+  staging-tinyship-demo-user:
+    host: staging-host
+    pm2App: tinyship-demo-user
+    rsync:
+      - apps/user/package.json
+      - apps/user/dist
+      - apps/user/.env.staging
     npmInstall: true
     pm2Restart: true
     postCommand: []

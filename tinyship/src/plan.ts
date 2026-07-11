@@ -2,12 +2,22 @@
  * 文件说明: 校验 TinyShip deploy config 与 PM2 ecosystem，并生成每台 host 的部署计划。
  * 参考资料: tinyship.config.yml, ecosystem.config.cjs
  */
-import { defaultNpmInstallCommand, ecosystemFile, productionEnvFileForScript, requiredRsyncPaths, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
-import type { DeployConfig, DeployHost, DeployPlan, DeployPlanService, EcosystemApp, EcosystemConfig } from './types.js';
+import { defaultNpmInstallCommand, ecosystemFile, envFileForApp, requiredRsyncPaths, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
+import type { DeployConfig, DeployHost, DeployPlan, DeployPlanService, EcosystemApp, EcosystemConfig, EcosystemConfigSource } from './types.js';
+
+export function ecosystemConfigForHost(hostName: string, deployConfig: DeployConfig, source?: EcosystemConfigSource): EcosystemConfig | undefined {
+  if (!source) return undefined;
+  if (Array.isArray((source as EcosystemConfig).apps)) return source as EcosystemConfig;
+  const ecosystemPath = deployConfig.hosts[hostName]?.ecosystem ?? ecosystemFile;
+  return (source as Record<string, EcosystemConfig>)[ecosystemPath];
+}
 
 function validateServiceActions(serviceName: string, service: DeployConfig['services'][string]): void {
   if (service.rsync !== undefined && (!Array.isArray(service.rsync) || service.rsync.some(path => typeof path !== 'string' || path.length === 0))) {
     throw new Error(`Deploy service ${serviceName} rsync must be an array of non-empty strings`);
+  }
+  if (service.pm2App !== undefined && (typeof service.pm2App !== 'string' || service.pm2App.length === 0)) {
+    throw new Error(`Deploy service ${serviceName} pm2App must be a non-empty string`);
   }
 
   if (service.npmInstall !== undefined && typeof service.npmInstall !== 'boolean') {
@@ -76,6 +86,9 @@ export function validateHost(hostName: string, host: DeployHost): void {
   if (typeof host.appDir !== 'string' || host.appDir.length === 0) {
     throw new Error(`Deploy host ${hostName} is missing appDir`);
   }
+  if (host.ecosystem !== undefined && (typeof host.ecosystem !== 'string' || host.ecosystem.length === 0)) {
+    throw new Error(`Deploy host ${hostName} ecosystem must be a non-empty string`);
+  }
 
   if (!Array.isArray(host.rsync) || host.rsync.length === 0 || host.rsync.some(path => typeof path !== 'string' || path.length === 0)) {
     throw new Error(`Deploy host ${hostName} must define a non-empty rsync array`);
@@ -111,7 +124,7 @@ function resolvePm2Action(hostName: string, serviceNames: string[], deployConfig
   if (!ecosystemConfig) throw new Error(`Deploy host ${hostName} enables pm2Restart, but ecosystem config was not loaded`);
 
   return {
-    ecosystem: ecosystemFile,
+    ecosystem: deployConfig.hosts[hostName].ecosystem ?? ecosystemFile,
     serviceNames: pm2ServiceNames,
     save: true,
   };
@@ -134,11 +147,12 @@ function resolveRsyncPaths(host: DeployHost, serviceNames: string[], deployConfi
   ]);
 }
 
-function resolveServices(serviceNames: string[], ecosystemConfig: EcosystemConfig): DeployPlanService[] {
+function resolveServices(serviceNames: string[], ecosystemConfig: EcosystemConfig, deployConfig: DeployConfig): DeployPlanService[] {
   const apps = ecosystemAppByName(ecosystemConfig);
 
   return serviceNames.map(serviceName => {
-    const app = apps.get(serviceName);
+    const pm2AppName = deployConfig.services[serviceName].pm2App ?? serviceName;
+    const app = apps.get(pm2AppName);
     if (!app) throw new Error(`Deploy service ${serviceName} is missing from PM2 ecosystem apps`);
 
     const nodeEnv = app.env?.NODE_ENV;
@@ -149,9 +163,10 @@ function resolveServices(serviceNames: string[], ecosystemConfig: EcosystemConfi
     }
 
     return {
-      name: serviceName,
+      deployService: serviceName,
+      name: pm2AppName,
       nodeEnv,
-      envFile: productionEnvFileForScript(app.script),
+      envFile: envFileForApp(app),
     };
   });
 }
@@ -197,7 +212,7 @@ export function validateEcosystemConfig(ecosystemConfig: EcosystemConfig): Ecosy
 
 export function validateDeployConfig({ deployConfig, ecosystemConfig }: {
   deployConfig: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
 }): void {
   if (!deployConfig || typeof deployConfig !== 'object') {
     throw new Error('Deploy config must be an object');
@@ -208,9 +223,9 @@ export function validateDeployConfig({ deployConfig, ecosystemConfig }: {
   }
 
   const services = validateServices(deployConfig);
-  const apps = ecosystemConfig ? validateEcosystemConfig(ecosystemConfig) : [];
-
   for (const hostName of Object.keys(deployConfig.hosts)) {
+    const hostEcosystemConfig = ecosystemConfigForHost(hostName, deployConfig, ecosystemConfig);
+    const apps = hostEcosystemConfig ? validateEcosystemConfig(hostEcosystemConfig) : [];
     const plan = createDeployPlan({ hostName, ecosystemConfig, deployConfig });
 
     if (plan.npmInstallCommand === defaultNpmInstallCommand && !plan.rsync.includes('package.json')) {
@@ -245,7 +260,7 @@ export function deployConfigNeedsEcosystemConfig(deployConfig: DeployConfig, ser
 export function createDeployPlan({ hostName, serviceNames: selectedServiceNames, ecosystemConfig, deployConfig }: {
   hostName: string;
   serviceNames?: string[];
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   deployConfig: DeployConfig;
 }): DeployPlan {
   if (!deployConfig?.hosts || typeof deployConfig.hosts !== 'object') {
@@ -261,8 +276,9 @@ export function createDeployPlan({ hostName, serviceNames: selectedServiceNames,
   const serviceNames = serviceNamesForHost(hostName, deployConfig, selectedServiceNames);
   const rsync = resolveRsyncPaths(host, serviceNames, deployConfig);
   const npmInstallCommand = resolveNpmInstallCommand(serviceNames, deployConfig);
-  const pm2Action = resolvePm2Action(hostName, serviceNames, deployConfig, ecosystemConfig);
-  const services = pm2Action ? resolveServices(pm2Action.serviceNames, ecosystemConfig as EcosystemConfig) : [];
+  const hostEcosystemConfig = ecosystemConfigForHost(hostName, deployConfig, ecosystemConfig);
+  const pm2Action = resolvePm2Action(hostName, serviceNames, deployConfig, hostEcosystemConfig);
+  const services = pm2Action ? resolveServices(pm2Action.serviceNames, hostEcosystemConfig as EcosystemConfig, deployConfig) : [];
   const envFiles = uniqueValues(services.map(service => service.envFile));
   const postCommand = resolvePostCommand(serviceNames, deployConfig);
 

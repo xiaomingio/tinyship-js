@@ -100,6 +100,7 @@ Action fields use this shape:
 ```ts
 type TinyShipService = {
   host: string; // References hosts.<hostName>
+  pm2App?: string; // PM2 app name; defaults to the service key
   rsync?: string[]; // Files added only when this service is selected
   npmInstall?: boolean; // true runs npm install --omit=dev and requires package.json in rsync
   pm2Restart?: boolean; // true uses ecosystem.config.cjs and pm2 save for this service
@@ -107,11 +108,23 @@ type TinyShipService = {
 };
 ```
 
+Each host can select an `ecosystem` file; omitted hosts use `ecosystem.config.cjs`. A service can set `pm2App` when its deployment key differs from the PM2 app name, for example when `staging-demo-service-one` deploys the existing `demo-service-one` process to another host.
+
+```yaml
+hosts:
+  staging-host:
+    ecosystem: ecosystem.staging.config.cjs
+services:
+  staging-demo-service-one:
+    host: staging-host
+    pm2App: demo-service-one
+```
+
 Host `rsync` contains shared files. Service `rsync` contains service-specific files. TinyShip merges both lists, removes duplicate paths, and runs rsync once per selected host. A single-service deploy includes only the host list and that service's list; host/all deploys include every selected service on that host.
 
 `npmInstall` is only for npm dependency installation. If any selected service on a host enables it, TinyShip runs `npm install --omit=dev` once for that host and checks that `package.json` is included in the host `rsync`.
 
-`pm2Restart` is only for PM2. TinyShip matches services to PM2 apps by name, requires `NODE_ENV=production`, derives `apps/<name>/.env.production`, and validates upload paths. Before touching an existing process, its PM2 `cwd` must resolve to the selected host `appDir`; a same-name process owned by another directory stops the deployment. TinyShip compares `script`, `cwd`, `interpreter`, `node_args`, `exec_mode`, and `instances`: unchanged services reload together, changed services are deleted and recreated together, and missing services start together before one `pm2 save`.
+`pm2Restart` is only for PM2. TinyShip loads the selected host ecosystem and matches each service to `pm2App` when configured, otherwise to the service key. It requires `NODE_ENV=production`, reads `--env-file` from the PM2 app `node_args` with `.env.production` inference as a fallback, and validates upload paths. Before touching an existing process, its PM2 `cwd` must resolve to the selected host `appDir`; a same-name process owned by another directory stops the deployment. TinyShip compares `script`, `cwd`, `interpreter`, `node_args`, `exec_mode`, and `instances`: unchanged services reload together, changed services are deleted and recreated together, and missing services start together before one `pm2 save`.
 
 `postCommand` is for custom remote commands. TinyShip validates only that it is an array of non-empty strings and runs each selected service's commands after the built-in npm and PM2 actions.
 

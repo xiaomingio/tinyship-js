@@ -1,7 +1,7 @@
 /**
  * 文件说明: 解析 TinyShip 命令行参数，并分发 deploy、validate 和 preflight 命令。
  */
-import { defaultRootDir, loadDeployConfig, loadEcosystemConfig, sshTarget } from './config.js';
+import { defaultRootDir, loadDeployConfig, loadDeployEcosystemConfigs, sshTarget } from './config.js';
 import { deployConfigNeedsEcosystemConfig } from './plan.js';
 import { createConsolePreflightReporter, createPreflightReport, printPreflightReport } from './preflight.js';
 import { deployAll, deployHost, deployService, dryRunAll, dryRunHost, dryRunService } from './runner.js';
@@ -40,7 +40,7 @@ export async function main(argv: string[] = process.argv.slice(2), rootDir = def
 
   const deployConfig = await loadDeployConfig('tinyship.config.yml', rootDir);
   const loadProjectEcosystemConfig = async () => deployConfigNeedsEcosystemConfig(deployConfig)
-    ? await loadEcosystemConfig(undefined, rootDir)
+    ? await loadDeployEcosystemConfigs(deployConfig, rootDir)
     : undefined;
 
   if (command === 'deploy') {

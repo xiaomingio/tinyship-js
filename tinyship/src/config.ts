@@ -7,7 +7,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import YAML from 'yaml';
 
-import type { DeployConfig, EcosystemConfig, SshConfig } from './types.js';
+import type { DeployConfig, EcosystemConfig, EcosystemConfigSource, SshConfig } from './types.js';
 
 export const defaultRootDir = process.cwd();
 export const ecosystemFile = 'ecosystem.config.cjs';
@@ -24,6 +24,12 @@ export function productionEnvFileForScript(script: string): string {
   const distIndex = segments.indexOf('dist');
   const appDir = distIndex > 0 ? segments.slice(0, distIndex).join('/') : '';
   return appDir ? `${appDir}/.env.production` : '.env.production';
+}
+
+export function envFileForApp(app: { script: string; node_args?: string | string[] }): string {
+  const nodeArgs = Array.isArray(app.node_args) ? app.node_args.join(' ') : app.node_args ?? '';
+  const match = nodeArgs.match(/(?:^|\s)--env-file(?:=|\s+)([^\s]+)/);
+  return match?.[1] ?? productionEnvFileForScript(app.script);
 }
 
 export function projectPath(rootDir: string, relativePath: string): string {
@@ -77,4 +83,15 @@ export async function loadEcosystemConfig(ecosystemPath: string | URL | undefine
   const moduleUrl = resolvedPath instanceof URL ? resolvedPath : pathToFileURL(resolvedPath);
   const module = await import(moduleUrl.href);
   return module.default ?? module;
+}
+
+export async function loadDeployEcosystemConfigs(deployConfig: DeployConfig, rootDir = defaultRootDir): Promise<EcosystemConfigSource | undefined> {
+  const paths = uniqueValues(Object.values(deployConfig.hosts ?? {}).map(host => host.ecosystem ?? ecosystemFile));
+  if (paths.length === 0) return undefined;
+  if (paths.length === 1 && paths[0] === ecosystemFile) return loadEcosystemConfig(ecosystemFile, rootDir);
+
+  return Object.fromEntries(await Promise.all(paths.map(async ecosystemPath => [
+    ecosystemPath,
+    await loadEcosystemConfig(ecosystemPath, rootDir),
+  ])));
 }

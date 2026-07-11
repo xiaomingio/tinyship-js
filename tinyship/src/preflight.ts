@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 
 import { defaultRootDir, shellQuote, sshArgs, sshTarget } from './config.js';
 import { createDeployPlan, validateDeployConfig } from './plan.js';
-import type { DeployConfig, EcosystemConfig, PreflightCheck, PreflightReport, SshConfig } from './types.js';
+import type { DeployConfig, EcosystemConfigSource, PreflightCheck, PreflightReport, SshConfig } from './types.js';
 
 const color = {
   bold: '\u001b[1m',
@@ -162,7 +162,7 @@ export async function createPreflightReport({
   reporter,
 }: {
   deployConfig: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir?: string;
   runner?: CommandRunner;
   reporter?: PreflightReporter;

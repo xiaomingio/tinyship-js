@@ -2,10 +2,11 @@
 
 node_modules/
 
-# The demo commits non-secret production fixtures and templates so TinyShip
+# The demo commits non-secret runtime fixtures and templates so TinyShip
 # can validate a complete multi-service deployment example from Git.
 .env
 .env.*
 apps/*/.env.*
 !apps/*/.env.example
 !apps/*/.env.production
+!apps/*/.env.staging

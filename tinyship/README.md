@@ -10,7 +10,9 @@ For full project documentation, see the repository README: <https://github.com/x
 npm install -D @xiaomingio/tinyship
 ```
 
-For PM2 services, use standard `NODE_ENV=production` and Node's native `--env-file=apps/<service>/.env.production`. TinyShip derives and validates that env path from the PM2 script path; application code only reads `process.env`.
+For PM2 services, use standard `NODE_ENV=production` and Node's native `--env-file`. TinyShip reads the env path from PM2 `node_args`, falling back to `.env.production` inference, and validates that the file is included in rsync; application code only reads `process.env`.
+
+Hosts use `ecosystem.config.cjs` by default and can select another PM2 config with `host.ecosystem`. Services match PM2 apps by service key by default and can target an existing app name with `service.pm2App`. This supports staging or device-specific startup configuration without custom PM2 post commands.
 
 Put shared deploy paths in `host.rsync` and app-specific paths in `service.rsync`. TinyShip merges and deduplicates selected paths, then runs rsync once per host.
 

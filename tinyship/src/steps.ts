@@ -5,7 +5,7 @@
 import { rsyncSshArgs, sshArgs, sshTarget } from './config.js';
 import { assertEnvFiles, validateDeployFiles } from './files.js';
 import { run } from './run.js';
-import type { CommandRunner, DeployConfig, DeployPlan, DeployStep, EcosystemConfig } from './types.js';
+import type { CommandRunner, DeployConfig, DeployPlan, DeployStep, EcosystemConfigSource } from './types.js';
 
 function requireSshTarget(plan: DeployPlan): string {
   const target = sshTarget(plan.host.ssh);
@@ -84,7 +84,7 @@ async function postCommand(plan: DeployPlan, rootDir: string, runner: CommandRun
 export function createDeploySteps({ plan, deployConfig, ecosystemConfig, rootDir, runner = run }: {
   plan: DeployPlan;
   deployConfig: DeployConfig;
-  ecosystemConfig?: EcosystemConfig;
+  ecosystemConfig?: EcosystemConfigSource;
   rootDir: string;
   runner?: CommandRunner;
 }): DeployStep[] {

@@ -12,6 +12,7 @@ export type SshConfig = {
 export type EcosystemApp = {
   name: string;
   script: string;
+  node_args?: string | string[];
   env?: {
     NODE_ENV?: string;
   };
@@ -21,14 +22,18 @@ export type EcosystemConfig = {
   apps?: EcosystemApp[];
 };
 
+export type EcosystemConfigSource = EcosystemConfig | Record<string, EcosystemConfig>;
+
 export type DeployHost = {
   ssh: SshConfig;
   appDir: string;
   rsync: string[];
+  ecosystem?: string;
 };
 
 export type DeployService = {
   host: string;
+  pm2App?: string;
   rsync?: string[];
   npmInstall?: boolean;
   pm2Restart?: boolean;
@@ -41,6 +46,7 @@ export type DeployConfig = {
 };
 
 export type DeployPlanService = {
+  deployService: string;
   name: string;
   nodeEnv: string;
   envFile: string;
