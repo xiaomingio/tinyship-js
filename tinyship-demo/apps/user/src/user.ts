@@ -1,7 +1,7 @@
 /**
  * File purpose: Starts the user frontend using environment variables supplied by the process layer.
  */
-import { startFrontendPage } from './common.js';
+import { startFrontendPage } from '../../shared/src/common.js';
 
 startFrontendPage({
   appName: 'tinyship-demo-user',

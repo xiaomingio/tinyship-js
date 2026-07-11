@@ -4,8 +4,9 @@
   "private": true,
   "description": "Demo project that uses TinyShip from npm packages.",
   "type": "module",
+  "workspaces": ["apps/*"],
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "npm run build --workspaces --if-present",
     "start:user": "node --env-file=apps/user/.env.production apps/user/dist/user.js",
     "start:admin": "node --env-file=apps/admin/.env.production apps/admin/dist/admin.js",
     "start:backend": "node --env-file=apps/backend/.env.production apps/backend/dist/api.js",
@@ -23,7 +24,6 @@
   "devDependencies": {
     "@xiaomingio/tinyship": "^0.1.2",
     "@types/node": "^25.8.0",
-    "esbuild": "^0.27.1",
     "tsx": "^4.22.1",
     "typescript": "^6.0.3"
   }

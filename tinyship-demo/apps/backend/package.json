@@ -1,0 +1,12 @@
+{
+  "name": "@tinyship-demo/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/api.ts --bundle --platform=node --format=esm --target=node20 --sourcemap --outfile=dist/api.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.1"
+  }
+}

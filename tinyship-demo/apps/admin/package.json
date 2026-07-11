@@ -1,0 +1,12 @@
+{
+  "name": "@tinyship-demo/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/admin.ts --bundle --platform=node --format=esm --target=node20 --sourcemap --outfile=dist/admin.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.1"
+  }
+}

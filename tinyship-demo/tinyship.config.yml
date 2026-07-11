@@ -23,7 +23,8 @@ services:
   tinyship-demo-user:
     host: frontend-host
     rsync:
-      - apps/user/
+      - apps/user/package.json
+      - apps/user/dist
       - apps/user/.env.production
     npmInstall: true
     pm2Restart: true
@@ -31,7 +32,8 @@ services:
   tinyship-demo-admin:
     host: frontend-host
     rsync:
-      - apps/admin/
+      - apps/admin/package.json
+      - apps/admin/dist
       - apps/admin/.env.production
     npmInstall: true
     pm2Restart: true
@@ -39,7 +41,8 @@ services:
   tinyship-demo-backend:
     host: backend-host
     rsync:
-      - apps/backend/
+      - apps/backend/package.json
+      - apps/backend/dist
       - apps/backend/.env.production
     npmInstall: true
     pm2Restart: true

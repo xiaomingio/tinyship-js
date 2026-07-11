@@ -18,25 +18,30 @@ tinyship-demo/
 ├── ecosystem.config.cjs
 ├── apps/
 │   ├── user/
+│   │   ├── src/user.ts
 │   │   ├── dist/user.js
+│   │   ├── package.json
 │   │   ├── .env.production
 │   │   └── .env.example
 │   ├── admin/
+│   │   ├── src/admin.ts
 │   │   ├── dist/admin.js
+│   │   ├── package.json
 │   │   ├── .env.production
 │   │   └── .env.example
-│   └── backend/
-│       ├── dist/api.js
-│       ├── .env.production
-│       └── .env.example
-├── src/
-│   ├── frontend/
-│   │   ├── common.ts
-│   │   ├── user.ts
-│   │   └── admin.ts
-│   └── backend/
-│       └── api.ts
+│   ├── backend/
+│   │   ├── src/api.ts
+│   │   ├── dist/api.js
+│   │   ├── package.json
+│   │   ├── .env.production
+│   │   └── .env.example
+│   └── shared/
+│       ├── src/common.ts
+│       └── package.json
+└── package.json
 ```
+
+Each service owns its source, package metadata, and `dist`. TinyShip publishes only its `package.json`, `dist`, and `.env.production`; source files and templates stay local.
 
 `tinyship-demo-user` is deployed to the `frontend-host` localhost target and loads `apps/user/.env.production` with Node's native `--env-file`.
 
