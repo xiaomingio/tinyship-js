@@ -111,7 +111,7 @@ Host `rsync` contains shared files. Service `rsync` contains service-specific fi
 
 `npmInstall` is only for npm dependency installation. If any selected service on a host enables it, TinyShip runs `npm install --omit=dev` once for that host and checks that `package.json` is included in the host `rsync`.
 
-`pm2Restart` is only for PM2. TinyShip matches services to PM2 apps by name, requires `NODE_ENV=production`, derives `apps/<name>/.env.production` from each app script path, validates the upload paths, reloads the selected services, and runs `pm2 save`.
+`pm2Restart` is only for PM2. TinyShip matches services to PM2 apps by name, requires `NODE_ENV=production`, derives `apps/<name>/.env.production`, and validates upload paths. Before touching an existing process, its PM2 `cwd` must resolve to the selected host `appDir`; a same-name process owned by another directory stops the deployment. TinyShip compares `script`, `cwd`, `interpreter`, `node_args`, `exec_mode`, and `instances`: unchanged services reload together, changed services are deleted and recreated together, and missing services start together before one `pm2 save`.
 
 `postCommand` is for custom remote commands. TinyShip validates only that it is an array of non-empty strings and runs each selected service's commands after the built-in npm and PM2 actions.
 

@@ -51,7 +51,8 @@ test('deploy steps use the injected runner for remote commands', async () => {
   assert.ok(commands.some(([command, args]) => command === 'rsync' && args.includes('--relative')));
   assert.ok(commands.some(([command, args]) => command === 'ssh' && args.includes('/var/www/example')));
   assert.equal(commands.some(([command, args]) => command === 'ssh' && args.includes('/var/www/example/dist')), false);
-  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('pm2 startOrReload'))));
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes("execFileSync('pm2'"))));
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('PM2 name conflict'))));
 });
 
 test('deploy steps run post commands after enabled built-in actions', async () => {
@@ -134,6 +135,7 @@ test('deploy steps run npm install once for multiple selected services on one ho
   await steps.find(step => step.name === 'pm2 restart')?.run();
 
   assert.equal(commands.filter(([, args]) => args.some(arg => arg.includes('npm install --omit=dev'))).length, 1);
-  assert.equal(commands.filter(([, args]) => args.some(arg => arg.includes('pm2 startOrReload'))).length, 1);
-  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('--only "example-server,example-worker"'))));
+  assert.equal(commands.filter(([, args]) => args.some(arg => arg.includes("execFileSync('pm2'"))).length, 1);
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('example-server') && arg.includes('example-worker'))));
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes("run(['delete',...changed])"))));
 });

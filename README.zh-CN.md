@@ -111,7 +111,7 @@ host 的 `rsync` 放公共文件，service 的 `rsync` 放专属文件。TinyShi
 
 `npmInstall` 只表示 npm 依赖安装。当前 host 上选中的 services 只要有一个启用它，TinyShip 就会在该 host 执行一次 `npm install --omit=dev`，并检查 `package.json` 是否包含在 host 的 `rsync` 中。
 
-`pm2Restart` 只表示 PM2 重启。TinyShip 按名称匹配 service 与 PM2 app，要求 `NODE_ENV=production`，根据 app script 推导 `apps/<name>/.env.production`，校验同步路径，重载选中的服务并执行 `pm2 save`。
+`pm2Restart` 只表示 PM2 重启。TinyShip 按名称匹配 service 与 PM2 app，要求 `NODE_ENV=production`，根据 app script 推导 `apps/<name>/.env.production` 并校验同步路径。操作已有进程前，PM2 `cwd` 解析结果必须等于所选 host 的 `appDir`；同名进程属于其他目录时立即终止发布。TinyShip 比较 `script`、`cwd`、`interpreter`、`node_args`、`exec_mode` 和 `instances`：未变化的服务批量 reload，拓扑变化的服务批量删除并重建，不存在的服务批量启动，最后只执行一次 `pm2 save`。
 
 `postCommand` 表示自定义远程命令。TinyShip 只校验它是非空字符串数组，并在内置 npm 和 PM2 动作之后逐条执行选中 services 的命令。
 

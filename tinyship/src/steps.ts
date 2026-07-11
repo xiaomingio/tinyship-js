@@ -56,10 +56,23 @@ async function npmInstall(plan: DeployPlan, rootDir: string, runner: CommandRunn
 async function pm2Restart(plan: DeployPlan, rootDir: string, runner: CommandRunner): Promise<void> {
   if (!plan.pm2Restart) return;
   const serviceNames = plan.pm2Restart.services.map(service => service.name);
-  const only = serviceNames.join(',');
+  const script = [
+    "const cp=require('node:child_process'),fs=require('node:fs'),path=require('node:path')",
+    `const appDir=${JSON.stringify(plan.host.appDir)},ecosystem=${JSON.stringify(plan.pm2Restart.ecosystem)},selected=${JSON.stringify(serviceNames)}`,
+    "const config=require(path.resolve(ecosystem)),apps=new Map(config.apps.map(a=>[a.name,a]))",
+    "cp.execFileSync('pm2',['ping'],{stdio:'ignore'})",
+    "const current=JSON.parse(cp.execFileSync('pm2',['jlist'],{encoding:'utf8'}))",
+    "const changed=[],missing=[],stable=[]",
+    "const norm=v=>Array.isArray(v)?v.join(' '):String(v??'').trim(),real=v=>fs.realpathSync(path.resolve(v))",
+    "for(const name of selected){const app=apps.get(name);if(!app)throw new Error('Missing ecosystem app: '+name);const rows=current.filter(p=>p.name===name);if(!rows.length){missing.push(name);continue}for(const row of rows){if(real(row.pm2_env.pm_cwd)!==real(appDir))throw new Error('PM2 name conflict: '+name+' belongs to '+row.pm2_env.pm_cwd)}const env=rows[0].pm2_env;const desiredScript=real(path.resolve(appDir,app.script)),desiredCwd=real(path.resolve(appDir,app.cwd??'.')),desiredMode=(app.exec_mode??(app.instances!==undefined?'cluster':'fork'))+'_mode',desiredInterpreter=app.interpreter??'node',desiredInstances=Number(app.instances??1);const same=real(env.pm_exec_path)===desiredScript&&real(env.pm_cwd)===desiredCwd&&path.basename(env.exec_interpreter??'node')===path.basename(desiredInterpreter)&&norm(env.node_args)===norm(app.node_args)&&env.exec_mode===desiredMode&&Number(env.instances??rows.length)===desiredInstances;(same?stable:changed).push(name)}",
+    "const run=args=>cp.execFileSync('pm2',args,{stdio:'inherit'})",
+    "if(stable.length)run(['startOrReload',ecosystem,'--only',stable.join(','),'--update-env'])",
+    "if(changed.length)run(['delete',...changed])",
+    "const start=[...changed,...missing];if(start.length)run(['start',ecosystem,'--only',start.join(','),'--update-env'])",
+    "run(['save'])",
+  ].join(';');
   await runRemoteCommand(plan, rootDir, runner, [
-    `pm2 startOrReload ${remoteShellQuote(plan.pm2Restart.ecosystem)} --only ${remoteShellQuote(only)} --update-env`,
-    ...(plan.pm2Restart.save ? ['pm2 save'] : []),
+    `node -e ${remoteShellQuote(script)}`,
   ]);
 }
 

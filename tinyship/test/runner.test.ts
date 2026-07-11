@@ -47,7 +47,7 @@ test('dry-run host prints the same deploy commands without executing them', asyn
   assert.ok(logs.some(line => line.includes('dist package.json package-lock.json ecosystem.config.cjs')));
   assert.ok(logs.some(line => line.includes('.env.production')));
   assert.ok(logs.some(line => line.includes('root@example.com:/var/www/example/')));
-  assert.ok(logs.some(line => line.includes('pm2 startOrReload')));
+  assert.ok(logs.some(line => line.includes('PM2 name conflict')));
   assert.ok(logs.some(line => line.includes('# Dry run complete.')));
 });
 
@@ -99,8 +99,8 @@ test('dry-run service rsyncs the host and restarts only the selected service', a
 
   assert.ok(logs.some(line => line.includes('# Dry run service example-server to root@example.com:/var/www/example')));
   assert.equal(logs.filter(line => line.includes('rsync -az --delete')).length, 1);
-  assert.ok(logs.some(line => line.includes('--only "example-server"')));
-  assert.equal(logs.some(line => line.includes('--only "example-worker"')), false);
+  assert.ok(logs.some(line => line.includes('example-server')));
+  assert.equal(logs.some(line => line.includes('selected=["example-server","example-worker"]')), false);
   assert.ok(logs.some(line => line.includes('printf server')));
   assert.equal(logs.some(line => line.includes('printf worker')), false);
 });
