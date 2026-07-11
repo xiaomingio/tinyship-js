@@ -7,20 +7,20 @@ import test from 'node:test';
 import { createDeployPlan, validateDeployConfig } from '../dist/deploy.js';
 import { exampleDeployConfig, exampleEcosystemConfig, requiredRsync } from './fixtures.ts';
 
-test('deploy plan derives prod env files from service ids', () => {
+test('deploy plan derives production env files from application directories', () => {
   const plan = createDeployPlan({
     hostName: 'web',
     ecosystemConfig: {
       apps: [
         {
           name: 'example-server',
-          script: 'dist/src/server.js',
-          env: { NODE_ENV: 'prod.example-server' },
+          script: 'apps/web/dist/server.js',
+          env: { NODE_ENV: 'production' },
         },
         {
           name: 'example-worker',
-          script: 'dist/src/worker.js',
-          env: { NODE_ENV: 'prod.example-worker' },
+          script: 'apps/worker/dist/worker.js',
+          env: { NODE_ENV: 'production' },
         },
       ],
     },
@@ -29,7 +29,7 @@ test('deploy plan derives prod env files from service ids', () => {
         web: {
           ssh: { target: 'root@example.com' },
           appDir: '/var/www/example',
-          rsync: [...requiredRsync, '.env.prod.example-server', '.env.prod.example-worker'],
+          rsync: [...requiredRsync, 'apps/web/', 'apps/worker/', 'apps/web/.env.production', 'apps/worker/.env.production'],
         },
       },
       services: {
@@ -39,8 +39,8 @@ test('deploy plan derives prod env files from service ids', () => {
     },
   });
 
-  assert.deepEqual(plan.envFiles, ['.env.prod.example-server', '.env.prod.example-worker']);
-  assert.deepEqual(plan.services.map(service => service.nodeEnv), ['prod.example-server', 'prod.example-worker']);
+  assert.deepEqual(plan.envFiles, ['apps/web/.env.production', 'apps/worker/.env.production']);
+  assert.deepEqual(plan.services.map(service => service.nodeEnv), ['production', 'production']);
   assert.deepEqual(plan.host.ssh, { target: 'root@example.com' });
 });
 
@@ -69,7 +69,7 @@ test('deploy plan can target one service while still using the host rsync list',
       web: {
         ssh: { target: 'root@example.com' },
         appDir: '/var/www/example',
-        rsync: ['dist/', ...requiredRsync, '.env.prod.example-server', '.env.prod.example-worker'],
+        rsync: ['dist/', ...requiredRsync, '.env.production', '.env.production'],
       },
     },
     services: {
@@ -83,15 +83,15 @@ test('deploy plan can target one service while still using the host rsync list',
     serviceNames: ['example-server'],
     ecosystemConfig: {
       apps: [
-        { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'prod.example-server' } },
-        { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'prod.example-worker' } },
+        { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'production' } },
+        { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'production' } },
       ],
     },
     deployConfig,
   });
 
   assert.deepEqual(plan.services.map(service => service.name), ['example-server']);
-  assert.deepEqual(plan.envFiles, ['.env.prod.example-server']);
+  assert.deepEqual(plan.envFiles, ['.env.production']);
   assert.equal(plan.npmInstallCommand, 'npm install --omit=dev');
   assert.deepEqual(plan.pm2Restart?.services.map(service => service.name), ['example-server']);
   assert.deepEqual(plan.postCommand, ['printf server']);
@@ -104,7 +104,7 @@ test('deploy validation requires ecosystem to be uploaded when pm2Restart is ena
       validateDeployConfig({
         ecosystemConfig: exampleEcosystemConfig(),
         deployConfig: exampleDeployConfig({
-          rsync: ['dist/', 'package.json', 'package-lock.json', 'tinyship.config.yml', '.env.prod.example-server'],
+          rsync: ['dist/', 'package.json', 'package-lock.json', 'tinyship.config.yml', '.env.production'],
         }),
       }),
     /ecosystem\.config\.cjs/,
@@ -167,14 +167,14 @@ test('deploy validation rejects custom pm2Restart config objects', () => {
   );
 });
 
-test('deploy validation requires NODE_ENV to match prod service id', () => {
+test('deploy validation requires NODE_ENV to be production', () => {
   assert.throws(
     () =>
       validateDeployConfig({
-        ecosystemConfig: exampleEcosystemConfig({ nodeEnv: 'production-server' }),
+        ecosystemConfig: exampleEcosystemConfig({ nodeEnv: 'development' }),
         deployConfig: exampleDeployConfig(),
       }),
-    /prod\.example-server/,
+    /production/,
   );
 });
 
@@ -194,7 +194,7 @@ test('deploy validation does not require tinyship config to be uploaded', () => 
     validateDeployConfig({
       ecosystemConfig: exampleEcosystemConfig(),
       deployConfig: exampleDeployConfig({
-        rsync: ['dist/src/', 'package.json', 'package-lock.json', 'ecosystem.config.cjs', '.env.prod.example-server'],
+        rsync: ['dist/src/', 'package.json', 'package-lock.json', 'ecosystem.config.cjs', '.env.production'],
       }),
     }),
   );
@@ -206,7 +206,7 @@ test('deploy validation still requires enabled pm2Restart ecosystem to be upload
       validateDeployConfig({
         ecosystemConfig: exampleEcosystemConfig(),
         deployConfig: exampleDeployConfig({
-          rsync: ['dist/src/', 'package.json', 'package-lock.json', '.env.prod.example-server'],
+          rsync: ['dist/src/', 'package.json', 'package-lock.json', '.env.production'],
         }),
       }),
     /ecosystem\.config\.cjs/,
@@ -218,7 +218,7 @@ test('deploy validation accepts a dist subdirectory when it covers PM2 scripts',
     validateDeployConfig({
       ecosystemConfig: exampleEcosystemConfig({ script: 'dist/src/server.js' }),
       deployConfig: exampleDeployConfig({
-        rsync: ['dist/src', ...requiredRsync, '.env.prod.example-server'],
+        rsync: ['dist/src', ...requiredRsync, '.env.production'],
       }),
     }),
   );
@@ -231,7 +231,7 @@ test('deploy validation requires env files to be listed in rsync', () => {
         ecosystemConfig: exampleEcosystemConfig(),
         deployConfig: exampleDeployConfig({ rsync: requiredRsync }),
       }),
-    /\.env\.prod\.example-server/,
+    /\.env\.production/,
   );
 });
 

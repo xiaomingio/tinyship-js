@@ -1,8 +1,6 @@
 /**
  * File purpose: Backend API entry that returns the runtime env loaded by the backend service.
  */
-import '@xiaomingio/tinyship-env/register';
-
 import { createServer } from 'node:http';
 
 const port = Number(process.env.PORT || 3002);

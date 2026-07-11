@@ -4,9 +4,6 @@ This is a minimal multi-service demo project that exercises the full TinyShip de
 
 ```json
 {
-  "dependencies": {
-    "@xiaomingio/tinyship-env": "^0.1.0"
-  },
   "devDependencies": {
     "@xiaomingio/tinyship": "^0.1.0"
   }
@@ -19,12 +16,19 @@ This is a minimal multi-service demo project that exercises the full TinyShip de
 tinyship-demo/
 ├── tinyship.config.yml
 ├── ecosystem.config.cjs
-├── .env.prod.tinyship-demo-user
-├── .env.prod.tinyship-demo-user.example
-├── .env.prod.tinyship-demo-admin
-├── .env.prod.tinyship-demo-admin.example
-├── .env.prod.tinyship-demo-backend
-├── .env.prod.tinyship-demo-backend.example
+├── apps/
+│   ├── user/
+│   │   ├── dist/user.js
+│   │   ├── .env.production
+│   │   └── .env.example
+│   ├── admin/
+│   │   ├── dist/admin.js
+│   │   ├── .env.production
+│   │   └── .env.example
+│   └── backend/
+│       ├── dist/api.js
+│       ├── .env.production
+│       └── .env.example
 ├── src/
 │   ├── frontend/
 │   │   ├── common.ts
@@ -32,19 +36,13 @@ tinyship-demo/
 │   │   └── admin.ts
 │   └── backend/
 │       └── api.ts
-└── dist/
-    ├── frontend/
-    │   ├── user.js
-    │   └── admin.js
-    └── backend/
-        └── api.js
 ```
 
-`tinyship-demo-user` is deployed to the `frontend-host` localhost target, uses `NODE_ENV=prod.tinyship-demo-user`, and loads `.env.prod.tinyship-demo-user`.
+`tinyship-demo-user` is deployed to the `frontend-host` localhost target and loads `apps/user/.env.production` with Node's native `--env-file`.
 
-`tinyship-demo-admin` is deployed to the `frontend-host` localhost target, uses `NODE_ENV=prod.tinyship-demo-admin`, and loads `.env.prod.tinyship-demo-admin`.
+`tinyship-demo-admin` loads `apps/admin/.env.production` using the same process boundary.
 
-`tinyship-demo-backend` is deployed to the `backend-host` localhost target, uses `NODE_ENV=prod.tinyship-demo-backend`, and loads `.env.prod.tinyship-demo-backend`. Its `/api/env` endpoint returns the backend runtime env values.
+`tinyship-demo-backend` loads `apps/backend/.env.production`. All three services use `NODE_ENV=production`; application code only reads `process.env`.
 
 ## Commands
 

@@ -3,7 +3,7 @@
  */
 export const requiredRsync = ['package.json', 'package-lock.json', 'ecosystem.config.cjs', 'tinyship.config.yml'];
 
-export function exampleEcosystemConfig({ script = 'dist/src/server.js', nodeEnv = 'prod.example-server' } = {}) {
+export function exampleEcosystemConfig({ script = 'dist/src/server.js', nodeEnv = 'production' } = {}) {
   return {
     apps: [
       {
@@ -18,7 +18,7 @@ export function exampleEcosystemConfig({ script = 'dist/src/server.js', nodeEnv 
 export function exampleDeployConfig({
   hostName = 'web',
   ssh = { target: 'root@example.com' },
-  rsync = ['dist/', ...requiredRsync, '.env.prod.example-server'],
+  rsync = ['dist/', ...requiredRsync, '.env.production'],
   npmInstall = true,
   pm2Restart = true,
   postCommand = [],

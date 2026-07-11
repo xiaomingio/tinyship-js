@@ -10,11 +10,7 @@ For full project documentation, see the repository README: <https://github.com/x
 npm install -D @xiaomingio/tinyship
 ```
 
-Install `@xiaomingio/tinyship-env` as a runtime dependency when your services need TinyShip env loading:
-
-```bash
-npm install @xiaomingio/tinyship-env
-```
+For PM2 services, use standard `NODE_ENV=production` and Node's native `--env-file=apps/<service>/.env.production`. TinyShip derives and validates that env path from the PM2 script path; application code only reads `process.env`.
 
 ## Commands
 

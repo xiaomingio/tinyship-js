@@ -104,7 +104,7 @@ test('deploy steps run npm install once for multiple selected services on one ho
       web: {
         ssh: { target: 'root@example.com' },
         appDir: '/var/www/example',
-        rsync: ['dist/', 'package.json', 'ecosystem.config.cjs', '.env.prod.example-server', '.env.prod.example-worker'],
+        rsync: ['dist/', 'package.json', 'ecosystem.config.cjs', '.env.production', '.env.production'],
       },
     },
     services: {
@@ -114,8 +114,8 @@ test('deploy steps run npm install once for multiple selected services on one ho
   };
   const ecosystemConfig = {
     apps: [
-      { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'prod.example-server' } },
-      { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'prod.example-worker' } },
+      { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'production' } },
+      { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'production' } },
     ],
   };
   const plan = createDeployPlan({ hostName: 'web', ecosystemConfig, deployConfig });

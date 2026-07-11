@@ -4,25 +4,26 @@ hosts:
       target: localhost
     appDir: /tmp/tinyship-demo/frontend
     rsync:
-      - dist/
+      - apps/user/
+      - apps/admin/
+      - apps/user/.env.production
+      - apps/admin/.env.production
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
       - tinyship.config.yml
-      - .env.prod.tinyship-demo-user
-      - .env.prod.tinyship-demo-admin
 
   backend-host:
     ssh:
       target: localhost
     appDir: /tmp/tinyship-demo/backend
     rsync:
-      - dist/
+      - apps/backend/
+      - apps/backend/.env.production
       - package.json
       - package-lock.json
       - ecosystem.config.cjs
       - tinyship.config.yml
-      - .env.prod.tinyship-demo-backend
 
 services:
   tinyship-demo-user:

@@ -18,7 +18,7 @@ test('dry-run host prints the same deploy commands without executing them', asyn
   fs.writeFileSync(path.join(rootDir, 'package-lock.json'), '{}');
   fs.writeFileSync(path.join(rootDir, 'ecosystem.config.cjs'), 'module.exports = { apps: [] };');
   fs.writeFileSync(path.join(rootDir, 'tinyship.config.yml'), '');
-  fs.writeFileSync(path.join(rootDir, '.env.prod.example-server'), '');
+  fs.writeFileSync(path.join(rootDir, '.env.production'), '');
 
   const logs: string[] = [];
   const originalInfo = console.info;
@@ -45,7 +45,7 @@ test('dry-run host prints the same deploy commands without executing them', asyn
   assert.equal(logs.filter(line => line.includes('rsync -az --delete')).length, 1);
   assert.ok(logs.some(line => line.startsWith('rsync -az --delete --relative')));
   assert.ok(logs.some(line => line.includes('dist package.json package-lock.json ecosystem.config.cjs')));
-  assert.ok(logs.some(line => line.includes('.env.prod.example-server')));
+  assert.ok(logs.some(line => line.includes('.env.production')));
   assert.ok(logs.some(line => line.includes('root@example.com:/var/www/example/')));
   assert.ok(logs.some(line => line.includes('pm2 startOrReload')));
   assert.ok(logs.some(line => line.includes('# Dry run complete.')));
@@ -58,15 +58,15 @@ test('dry-run service rsyncs the host and restarts only the selected service', a
   fs.writeFileSync(path.join(rootDir, 'dist/src/worker.js'), '');
   fs.writeFileSync(path.join(rootDir, 'package.json'), '{}');
   fs.writeFileSync(path.join(rootDir, 'ecosystem.config.cjs'), 'module.exports = { apps: [] };');
-  fs.writeFileSync(path.join(rootDir, '.env.prod.example-server'), '');
-  fs.writeFileSync(path.join(rootDir, '.env.prod.example-worker'), '');
+  fs.writeFileSync(path.join(rootDir, '.env.production'), '');
+  fs.writeFileSync(path.join(rootDir, '.env.production'), '');
 
   const deployConfig = {
     hosts: {
       web: {
         ssh: { target: 'root@example.com' },
         appDir: '/var/www/example',
-        rsync: ['dist/', 'package.json', 'ecosystem.config.cjs', '.env.prod.example-server', '.env.prod.example-worker'],
+        rsync: ['dist/', 'package.json', 'ecosystem.config.cjs', '.env.production', '.env.production'],
       },
     },
     services: {
@@ -76,8 +76,8 @@ test('dry-run service rsyncs the host and restarts only the selected service', a
   };
   const ecosystemConfig = {
     apps: [
-      { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'prod.example-server' } },
-      { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'prod.example-worker' } },
+      { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'production' } },
+      { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'production' } },
     ],
   };
   const logs: string[] = [];

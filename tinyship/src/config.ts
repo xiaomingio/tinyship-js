@@ -18,12 +18,12 @@ export function uniqueValues<T>(values: T[]): T[] {
   return [...new Set(values)];
 }
 
-export function envFileForNodeEnv(nodeEnv: string): string {
-  return `.env.${nodeEnv}`;
-}
-
-export function productionNodeEnvForService(serviceName: string): string {
-  return `prod.${serviceName}`;
+export function productionEnvFileForScript(script: string): string {
+  const normalizedScript = script.replaceAll('\\', '/');
+  const segments = normalizedScript.split('/');
+  const distIndex = segments.indexOf('dist');
+  const appDir = distIndex > 0 ? segments.slice(0, distIndex).join('/') : '';
+  return appDir ? `${appDir}/.env.production` : '.env.production';
 }
 
 export function projectPath(rootDir: string, relativePath: string): string {

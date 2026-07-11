@@ -2,7 +2,7 @@
  * 文件说明: 校验 TinyShip deploy config 与 PM2 ecosystem，并生成每台 host 的部署计划。
  * 参考资料: tinyship.config.yml, ecosystem.config.cjs
  */
-import { defaultNpmInstallCommand, ecosystemFile, envFileForNodeEnv, productionNodeEnvForService, requiredRsyncPaths, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
+import { defaultNpmInstallCommand, ecosystemFile, productionEnvFileForScript, requiredRsyncPaths, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
 import type { DeployConfig, DeployHost, DeployPlan, DeployPlanService, EcosystemApp, EcosystemConfig } from './types.js';
 
 function validateServiceActions(serviceName: string, service: DeployConfig['services'][string]): void {
@@ -132,7 +132,7 @@ function resolveServices(serviceNames: string[], ecosystemConfig: EcosystemConfi
 
     const nodeEnv = app.env?.NODE_ENV;
     if (!nodeEnv) throw new Error(`PM2 service ${serviceName} is missing env.NODE_ENV`);
-    const expectedNodeEnv = productionNodeEnvForService(serviceName);
+    const expectedNodeEnv = 'production';
     if (nodeEnv !== expectedNodeEnv) {
       throw new Error(`PM2 service ${serviceName} env.NODE_ENV must be ${expectedNodeEnv}`);
     }
@@ -140,7 +140,7 @@ function resolveServices(serviceNames: string[], ecosystemConfig: EcosystemConfi
     return {
       name: serviceName,
       nodeEnv,
-      envFile: envFileForNodeEnv(nodeEnv),
+      envFile: productionEnvFileForScript(app.script),
     };
   });
 }

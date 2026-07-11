@@ -1,8 +1,6 @@
 /**
- * File purpose: Admin frontend entry that loads the prod.tinyship-demo-admin env and starts the admin page.
+ * File purpose: Starts the admin frontend using environment variables supplied by the process layer.
  */
-import '@xiaomingio/tinyship-env/register';
-
 import { startFrontendPage } from './common.js';
 
 startFrontendPage({

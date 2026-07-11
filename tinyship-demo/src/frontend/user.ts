@@ -1,8 +1,6 @@
 /**
- * File purpose: User frontend entry that loads the prod.tinyship-demo-user env and starts the user page.
+ * File purpose: Starts the user frontend using environment variables supplied by the process layer.
  */
-import '@xiaomingio/tinyship-env/register';
-
 import { startFrontendPage } from './common.js';
 
 startFrontendPage({

@@ -4,7 +4,7 @@
  */
 import { access } from 'node:fs/promises';
 
-import { defaultRootDir, envFileForNodeEnv, projectPath, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
+import { defaultRootDir, productionEnvFileForScript, projectPath, rsyncCoversPath, sshTarget, uniqueValues } from './config.js';
 import { createDeployPlan, deployConfigNeedsEcosystemConfig, listDeployServices, validateEcosystemConfig, validateHost } from './plan.js';
 import type { DeployConfig, EcosystemApp, EcosystemConfig, ValidationCheck, ValidationReport } from './types.js';
 
@@ -160,7 +160,7 @@ export async function createValidationReport({ deployConfig, ecosystemConfig, ro
         host: service?.host,
         nodeEnv: app?.env?.NODE_ENV,
         script: app?.script,
-        envFile: app?.env?.NODE_ENV ? envFileForNodeEnv(app.env.NODE_ENV) : undefined,
+        envFile: app?.script ? productionEnvFileForScript(app.script) : undefined,
       };
     }),
     checks,

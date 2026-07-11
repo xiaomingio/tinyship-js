@@ -18,7 +18,7 @@ test('validation report lists hosts, services, and checks', async () => {
   fs.writeFileSync(path.join(rootDir, 'package-lock.json'), '{}');
   fs.writeFileSync(path.join(rootDir, 'ecosystem.config.cjs'), 'module.exports = { apps: [] };');
   fs.writeFileSync(path.join(rootDir, 'tinyship.config.yml'), '');
-  fs.writeFileSync(path.join(rootDir, '.env.prod.example-server'), '');
+  fs.writeFileSync(path.join(rootDir, '.env.production'), '');
 
   const report = await createValidationReport({
     rootDir,
