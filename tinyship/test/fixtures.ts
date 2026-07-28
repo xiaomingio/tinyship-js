@@ -21,6 +21,10 @@ export function exampleDeployConfig({
   rsync = ['dist/', ...requiredRsync, '.env.production'],
   npmInstall = true,
   pm2Restart = true,
+  hostPreCommand = [],
+  hostStopForPreCommand = false,
+  preCommand = [],
+  stopForPreCommand = false,
   postCommand = [],
 } = {}) {
   return {
@@ -29,6 +33,8 @@ export function exampleDeployConfig({
         ssh,
         appDir: '/var/www/example',
         rsync,
+        preCommand: hostPreCommand,
+        stopForPreCommand: hostStopForPreCommand,
       },
     },
     services: {
@@ -36,6 +42,8 @@ export function exampleDeployConfig({
         host: hostName,
         npmInstall,
         pm2Restart,
+        preCommand,
+        stopForPreCommand,
         postCommand,
       },
     },

@@ -10,6 +10,7 @@
     "start:user": "node --env-file=apps/user/.env.production apps/user/dist/user.js",
     "start:admin": "node --env-file=apps/admin/.env.production apps/admin/dist/admin.js",
     "start:backend": "node --env-file=apps/backend/.env.production apps/backend/dist/api.js",
+    "db:migrate:prod": "node scripts/demo-migrate.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "tinyship:local:on": "node scripts/tinyship-local.mjs on",
     "tinyship:local:off": "node scripts/tinyship-local.mjs off",

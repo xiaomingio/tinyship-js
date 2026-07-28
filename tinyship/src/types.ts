@@ -29,6 +29,8 @@ export type DeployHost = {
   appDir: string;
   rsync: string[];
   ecosystem?: string;
+  preCommand?: string[];
+  stopForPreCommand?: boolean;
 };
 
 export type DeployService = {
@@ -37,6 +39,8 @@ export type DeployService = {
   rsync?: string[];
   npmInstall?: boolean;
   pm2Restart?: boolean;
+  preCommand?: string[];
+  stopForPreCommand?: boolean;
   postCommand?: string[];
 };
 
@@ -59,6 +63,8 @@ export type DeployPlan = {
   services: DeployPlanService[];
   envFiles: string[];
   npmInstallCommand?: string;
+  preCommand: string[];
+  stopForPreCommand: boolean;
   pm2Restart?: {
     ecosystem: string;
     services: DeployPlanService[];

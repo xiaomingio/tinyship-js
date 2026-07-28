@@ -12,6 +12,13 @@ export function ecosystemConfigForHost(hostName: string, deployConfig: DeployCon
   return (source as Record<string, EcosystemConfig>)[ecosystemPath];
 }
 
+function validateCommandList(label: string, value: string[] | undefined): void {
+  const commands = value ?? [];
+  if (!Array.isArray(commands) || commands.some(command => typeof command !== 'string' || command.length === 0)) {
+    throw new Error(`${label} must be an array of non-empty strings`);
+  }
+}
+
 function validateServiceActions(serviceName: string, service: DeployConfig['services'][string]): void {
   if (service.rsync !== undefined && (!Array.isArray(service.rsync) || service.rsync.some(path => typeof path !== 'string' || path.length === 0))) {
     throw new Error(`Deploy service ${serviceName} rsync must be an array of non-empty strings`);
@@ -28,10 +35,15 @@ function validateServiceActions(serviceName: string, service: DeployConfig['serv
     throw new Error(`Deploy service ${serviceName} pm2Restart must be a boolean`);
   }
 
-  const postCommand = service.postCommand ?? [];
-  if (!Array.isArray(postCommand) || postCommand.some(command => typeof command !== 'string' || command.length === 0)) {
-    throw new Error(`Deploy service ${serviceName} postCommand must be an array of non-empty strings`);
+  if (service.stopForPreCommand !== undefined && typeof service.stopForPreCommand !== 'boolean') {
+    throw new Error(`Deploy service ${serviceName} stopForPreCommand must be a boolean`);
   }
+  if (service.stopForPreCommand === true && service.pm2Restart === false) {
+    throw new Error(`Deploy service ${serviceName} enables stopForPreCommand, but pm2Restart is disabled`);
+  }
+
+  validateCommandList(`Deploy service ${serviceName} preCommand`, service.preCommand);
+  validateCommandList(`Deploy service ${serviceName} postCommand`, service.postCommand);
 }
 
 function validateServices(deployConfig: DeployConfig): string[] {
@@ -89,6 +101,10 @@ export function validateHost(hostName: string, host: DeployHost): void {
   if (host.ecosystem !== undefined && (typeof host.ecosystem !== 'string' || host.ecosystem.length === 0)) {
     throw new Error(`Deploy host ${hostName} ecosystem must be a non-empty string`);
   }
+  if (host.stopForPreCommand !== undefined && typeof host.stopForPreCommand !== 'boolean') {
+    throw new Error(`Deploy host ${hostName} stopForPreCommand must be a boolean`);
+  }
+  validateCommandList(`Deploy host ${hostName} preCommand`, host.preCommand);
 
   if (!Array.isArray(host.rsync) || host.rsync.length === 0 || host.rsync.some(path => typeof path !== 'string' || path.length === 0)) {
     throw new Error(`Deploy host ${hostName} must define a non-empty rsync array`);
@@ -138,6 +154,18 @@ function resolveNpmInstallCommand(serviceNames: string[], deployConfig: DeployCo
 
 function resolvePostCommand(serviceNames: string[], deployConfig: DeployConfig): string[] {
   return serviceNames.flatMap(serviceName => deployConfig.services[serviceName].postCommand ?? []);
+}
+
+function resolvePreCommand(host: DeployHost, serviceNames: string[], deployConfig: DeployConfig): string[] {
+  return uniqueValues([
+    ...(host.preCommand ?? []),
+    ...serviceNames.flatMap(serviceName => deployConfig.services[serviceName].preCommand ?? []),
+  ]);
+}
+
+function resolveStopForPreCommand(host: DeployHost, serviceNames: string[], deployConfig: DeployConfig): boolean {
+  return host.stopForPreCommand === true ||
+    serviceNames.some(serviceName => deployConfig.services[serviceName].stopForPreCommand === true);
 }
 
 function resolveRsyncPaths(host: DeployHost, serviceNames: string[], deployConfig: DeployConfig): string[] {
@@ -280,7 +308,16 @@ export function createDeployPlan({ hostName, serviceNames: selectedServiceNames,
   const pm2Action = resolvePm2Action(hostName, serviceNames, deployConfig, hostEcosystemConfig);
   const services = pm2Action ? resolveServices(pm2Action.serviceNames, hostEcosystemConfig as EcosystemConfig, deployConfig) : [];
   const envFiles = uniqueValues(services.map(service => service.envFile));
+  const preCommand = resolvePreCommand(host, serviceNames, deployConfig);
+  const stopForPreCommand = resolveStopForPreCommand(host, serviceNames, deployConfig);
   const postCommand = resolvePostCommand(serviceNames, deployConfig);
+
+  if (stopForPreCommand && preCommand.length === 0) {
+    throw new Error(`Deploy host ${hostName} enables stopForPreCommand, but preCommand is empty`);
+  }
+  if (stopForPreCommand && !pm2Action) {
+    throw new Error(`Deploy host ${hostName} enables stopForPreCommand, but pm2Restart is disabled`);
+  }
 
   for (const envFile of envFiles) {
     if (!rsync.includes(envFile)) {
@@ -295,6 +332,8 @@ export function createDeployPlan({ hostName, serviceNames: selectedServiceNames,
     services,
     envFiles,
     npmInstallCommand,
+    preCommand,
+    stopForPreCommand,
     pm2Restart: pm2Action ? {
       ecosystem: pm2Action.ecosystem,
       services,

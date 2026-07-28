@@ -74,6 +74,8 @@ services:
       - apps/service-one/.env.production
     npmInstall: true    # 当前 host 上选中的 services 只要有一个启用，就执行一次 npm install
     pm2Restart: true    # 只用 PM2 重启这个 service
+    preCommand: []      # PM2 启动 / 重启前执行的自定义命令
+    stopForPreCommand: false # 执行 preCommand 前先停止选中的 PM2 服务
     postCommand: []     # 这个 service 的自定义命令
   demo-service-two:
     host: demo-host-one
@@ -104,6 +106,8 @@ type TinyShipService = {
   rsync?: string[]; // 仅在选中该 service 时加入的文件
   npmInstall?: boolean; // true 执行 npm install --omit=dev，并要求 package.json 在 rsync 中
   pm2Restart?: boolean; // true 使用 ecosystem.config.cjs 和 pm2 save 重启这个 service
+  preCommand?: string[]; // rsync/npmInstall 之后、PM2 启动或重启之前，在远程 appDir 执行
+  stopForPreCommand?: boolean; // true 时先停止选中的 PM2 服务，再执行 preCommand
   postCommand?: string[]; // 在远程 appDir 中执行，顺序在这个 service 的 npmInstall 和 pm2Restart 之后
 };
 ```
@@ -122,11 +126,30 @@ services:
 
 host 的 `rsync` 放公共文件，service 的 `rsync` 放专属文件。TinyShip 合并清单并去重，每个选中的 host 只执行一次 rsync。单 service 发布只包含 host 清单和该 service 清单；host/all 发布包含该 host 上所有选中 service 的清单。
 
+host 也可以配置 `preCommand` 和 `stopForPreCommand`，用于这个 host 上所有选中 service 共享的迁移或检查命令。TinyShip 会合并 host 和 service 的 `preCommand`，去重后每个 host 执行一次。
+
 `npmInstall` 只表示 npm 依赖安装。当前 host 上选中的 services 只要有一个启用它，TinyShip 就会在该 host 执行一次 `npm install --omit=dev`，并检查 `package.json` 是否包含在 host 的 `rsync` 中。
 
 `pm2Restart` 只表示 PM2 重启。TinyShip 加载当前 host 选择的 ecosystem，优先使用 `pm2App` 匹配 PM2 app，未配置时使用 service key。它要求 `NODE_ENV=production`，优先读取 PM2 app `node_args` 中的 `--env-file`，未配置时回退推导 `.env.production`，并校验同步路径。操作已有进程前，PM2 `cwd` 解析结果必须等于所选 host 的 `appDir`；同名进程属于其他目录时立即终止发布。TinyShip 比较 `script`、`cwd`、`interpreter`、`node_args`、`exec_mode` 和 `instances`：未变化的服务批量 reload，拓扑变化的服务批量删除并重建，不存在的服务批量启动，最后只执行一次 `pm2 save`。
 
-`postCommand` 表示自定义远程命令。TinyShip 只校验它是非空字符串数组，并在内置 npm 和 PM2 动作之后逐条执行选中 services 的命令。
+`preCommand` 表示需要用新上传代码执行、但必须发生在 PM2 启动或重启前的远程命令，典型用法是 `npm run db:migrate:prod`。设置 `stopForPreCommand: true` 时，TinyShip 会先检查 PM2 进程归属，再停止选中的 PM2 服务，然后执行 `preCommand`。
+
+`postCommand` 表示 PM2 动作之后的自定义远程命令，适合 smoke check 或反向代理 reload。
+
+个人项目如果接受数据库迁移期间短暂停机，可以这样写：
+
+```yaml
+services:
+  app:
+    host: production-host
+    preCommand:
+      - npm run db:migrate:prod
+    stopForPreCommand: true
+    postCommand:
+      - npm run health:prod
+```
+
+对应远程顺序是 `rsync -> npm install -> pm2 stop -> preCommand -> pm2 start/reload -> postCommand`。不设置 `stopForPreCommand` 时，TinyShip 不执行 `pm2 stop`，旧进程会在 `preCommand` 期间继续服务。
 
 静态发布可以关闭内置远程动作：
 

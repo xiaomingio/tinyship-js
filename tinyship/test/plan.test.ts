@@ -93,9 +93,79 @@ test('deploy plan can target one service while still using the host rsync list',
   assert.deepEqual(plan.services.map(service => service.name), ['example-server']);
   assert.deepEqual(plan.envFiles, ['.env.production']);
   assert.equal(plan.npmInstallCommand, 'npm install --omit=dev');
+  assert.deepEqual(plan.preCommand, []);
+  assert.equal(plan.stopForPreCommand, false);
   assert.deepEqual(plan.pm2Restart?.services.map(service => service.name), ['example-server']);
   assert.deepEqual(plan.postCommand, ['printf server']);
   assert.deepEqual(plan.host.rsync, deployConfig.hosts.web.rsync);
+});
+
+test('deploy plan merges host and selected service pre commands once per host', () => {
+  const deployConfig = {
+    hosts: {
+      web: {
+        ssh: { target: 'root@example.com' },
+        appDir: '/var/www/example',
+        rsync: ['dist/', ...requiredRsync, '.env.production'],
+        preCommand: ['npm run db:migrate:prod'],
+      },
+    },
+    services: {
+      'example-server': {
+        host: 'web',
+        npmInstall: true,
+        pm2Restart: true,
+        preCommand: ['npm run db:check:prod'],
+        postCommand: [],
+      },
+      'example-worker': {
+        host: 'web',
+        npmInstall: false,
+        pm2Restart: true,
+        preCommand: ['npm run db:check:prod'],
+        postCommand: [],
+      },
+    },
+  };
+
+  const plan = createDeployPlan({
+    hostName: 'web',
+    ecosystemConfig: {
+      apps: [
+        { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'production' } },
+        { name: 'example-worker', script: 'dist/src/worker.js', env: { NODE_ENV: 'production' } },
+      ],
+    },
+    deployConfig,
+  });
+
+  assert.deepEqual(plan.preCommand, ['npm run db:migrate:prod', 'npm run db:check:prod']);
+});
+
+test('deploy plan enables stop-for-pre-command from host or selected services', () => {
+  const ecosystemConfig = {
+    apps: [
+      { name: 'example-server', script: 'dist/src/server.js', env: { NODE_ENV: 'production' } },
+    ],
+  };
+
+  assert.equal(createDeployPlan({
+    hostName: 'web',
+    ecosystemConfig,
+    deployConfig: exampleDeployConfig({
+      hostPreCommand: ['npm run db:migrate:prod'],
+      hostStopForPreCommand: true,
+    }),
+  }).stopForPreCommand, true);
+
+  assert.equal(createDeployPlan({
+    hostName: 'web',
+    ecosystemConfig,
+    deployConfig: exampleDeployConfig({
+      preCommand: ['npm run db:migrate:prod'],
+      stopForPreCommand: true,
+    }),
+  }).stopForPreCommand, true);
 });
 
 test('single-service deploy combines only host and selected service rsync paths', () => {
@@ -206,6 +276,83 @@ test('deploy validation rejects empty custom post commands', () => {
         }),
       }),
     /postCommand/,
+  );
+});
+
+test('deploy validation rejects empty pre commands', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          npmInstall: false,
+          pm2Restart: false,
+          preCommand: [''],
+          rsync: ['dist/'],
+        }),
+      }),
+    /preCommand/,
+  );
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          npmInstall: false,
+          pm2Restart: false,
+          hostPreCommand: [''],
+          rsync: ['dist/'],
+        }),
+      }),
+    /preCommand/,
+  );
+});
+
+test('deploy validation requires pre command and pm2 restart for stop-for-pre-command', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        ecosystemConfig: exampleEcosystemConfig(),
+        deployConfig: exampleDeployConfig({
+          stopForPreCommand: true,
+        }),
+      }),
+    /preCommand is empty/,
+  );
+
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          pm2Restart: false,
+          preCommand: ['npm run db:migrate:prod'],
+          stopForPreCommand: true,
+          rsync: ['dist/'],
+        }),
+      }),
+    /Deploy service example-server enables stopForPreCommand, but pm2Restart is disabled/,
+  );
+});
+
+test('deploy validation rejects invalid stop-for-pre-command flags', () => {
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          preCommand: ['npm run db:migrate:prod'],
+          stopForPreCommand: 'yes',
+        }),
+      }),
+    /stopForPreCommand must be a boolean/,
+  );
+
+  assert.throws(
+    () =>
+      validateDeployConfig({
+        deployConfig: exampleDeployConfig({
+          hostPreCommand: ['npm run db:migrate:prod'],
+          hostStopForPreCommand: 'yes',
+        }),
+      }),
+    /stopForPreCommand must be a boolean/,
   );
 });
 

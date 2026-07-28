@@ -53,6 +53,29 @@ async function npmInstall(plan: DeployPlan, rootDir: string, runner: CommandRunn
   await runRemoteCommand(plan, rootDir, runner, [plan.npmInstallCommand]);
 }
 
+async function preCommand(plan: DeployPlan, rootDir: string, runner: CommandRunner): Promise<void> {
+  if (plan.preCommand.length === 0) return;
+  await runRemoteCommand(plan, rootDir, runner, plan.preCommand);
+}
+
+async function pm2StopForPreCommand(plan: DeployPlan, rootDir: string, runner: CommandRunner): Promise<void> {
+  if (!plan.pm2Restart || !plan.stopForPreCommand) return;
+  const serviceNames = plan.pm2Restart.services.map(service => service.name);
+  const script = [
+    "const cp=require('node:child_process'),fs=require('node:fs'),path=require('node:path')",
+    `const appDir=${JSON.stringify(plan.host.appDir)},selected=${JSON.stringify(serviceNames)}`,
+    "cp.execFileSync('pm2',['ping'],{stdio:'ignore'})",
+    "const current=JSON.parse(cp.execFileSync('pm2',['jlist'],{encoding:'utf8'}))",
+    "const existing=[]",
+    "const real=v=>fs.realpathSync(path.resolve(v))",
+    "for(const name of selected){const rows=current.filter(p=>p.name===name);if(!rows.length)continue;for(const row of rows){if(real(row.pm2_env.pm_cwd)!==real(appDir))throw new Error('PM2 name conflict: '+name+' belongs to '+row.pm2_env.pm_cwd)}existing.push(name)}",
+    "if(existing.length)cp.execFileSync('pm2',['stop',...existing],{stdio:'inherit'})",
+  ].join(';');
+  await runRemoteCommand(plan, rootDir, runner, [
+    `node -e ${remoteShellQuote(script)}`,
+  ]);
+}
+
 async function pm2Restart(plan: DeployPlan, rootDir: string, runner: CommandRunner): Promise<void> {
   if (!plan.pm2Restart) return;
   const serviceNames = plan.pm2Restart.services.map(service => service.name);
@@ -121,6 +144,22 @@ export function createDeploySteps({ plan, deployConfig, ecosystemConfig, rootDir
       name: 'npm install',
       detail: plan.npmInstallCommand,
       run: () => npmInstall(plan, rootDir, runner),
+    });
+  }
+
+  if (plan.preCommand.length > 0) {
+    if (plan.stopForPreCommand) {
+      steps.push({
+        name: 'pm2 stop for pre command',
+        detail: plan.pm2Restart?.services.map(service => service.name).join(', '),
+        run: () => pm2StopForPreCommand(plan, rootDir, runner),
+      });
+    }
+
+    steps.push({
+      name: 'pre command',
+      detail: `${plan.preCommand.length} commands`,
+      run: () => preCommand(plan, rootDir, runner),
     });
   }
 

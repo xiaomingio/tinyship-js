@@ -18,6 +18,8 @@ Put shared deploy paths in `host.rsync` and app-specific paths in `service.rsync
 
 For existing PM2 processes, TinyShip first verifies that each same-name process belongs to the selected host `appDir`. It reloads unchanged services in one command, recreates only services whose PM2 topology changed, starts missing services, and saves the resulting PM2 process list once.
 
+Use `service.preCommand` for remote commands that must run after rsync/npm install and before PM2 starts or reloads, such as database migrations from newly uploaded code. Set `service.stopForPreCommand: true` to stop the selected PM2 services before those commands; `postCommand` still runs after PM2 is back.
+
 ## Commands
 
 | Command | Purpose |

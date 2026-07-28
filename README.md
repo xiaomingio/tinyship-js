@@ -74,6 +74,8 @@ services:
       - apps/service-one/.env.production
     npmInstall: true    # If any selected service on a host enables this, npm install runs once for that host
     pm2Restart: true    # Restarts only this service with PM2
+    preCommand: []      # Custom commands before PM2 starts/reloads this service
+    stopForPreCommand: false # Stop selected PM2 services before preCommand
     postCommand: []     # Custom commands for this service
   demo-service-two:
     host: demo-host-one
@@ -104,6 +106,8 @@ type TinyShipService = {
   rsync?: string[]; // Files added only when this service is selected
   npmInstall?: boolean; // true runs npm install --omit=dev and requires package.json in rsync
   pm2Restart?: boolean; // true uses ecosystem.config.cjs and pm2 save for this service
+  preCommand?: string[]; // Commands run from appDir after rsync/npmInstall and before PM2 starts or reloads
+  stopForPreCommand?: boolean; // true stops selected PM2 services before preCommand
   postCommand?: string[]; // Commands run on the remote host from appDir after npmInstall and pm2Restart for this service
 };
 ```
@@ -122,11 +126,30 @@ services:
 
 Host `rsync` contains shared files. Service `rsync` contains service-specific files. TinyShip merges both lists, removes duplicate paths, and runs rsync once per selected host. A single-service deploy includes only the host list and that service's list; host/all deploys include every selected service on that host.
 
+Hosts can also define `preCommand` and `stopForPreCommand` for commands shared by every selected service on that host. TinyShip merges host and service `preCommand` values and removes duplicate commands before running them once per host.
+
 `npmInstall` is only for npm dependency installation. If any selected service on a host enables it, TinyShip runs `npm install --omit=dev` once for that host and checks that `package.json` is included in the host `rsync`.
 
 `pm2Restart` is only for PM2. TinyShip loads the selected host ecosystem and matches each service to `pm2App` when configured, otherwise to the service key. It requires `NODE_ENV=production`, reads `--env-file` from the PM2 app `node_args` with `.env.production` inference as a fallback, and validates upload paths. Before touching an existing process, its PM2 `cwd` must resolve to the selected host `appDir`; a same-name process owned by another directory stops the deployment. TinyShip compares `script`, `cwd`, `interpreter`, `node_args`, `exec_mode`, and `instances`: unchanged services reload together, changed services are deleted and recreated together, and missing services start together before one `pm2 save`.
 
-`postCommand` is for custom remote commands. TinyShip validates only that it is an array of non-empty strings and runs each selected service's commands after the built-in npm and PM2 actions.
+`preCommand` is for custom remote commands that must use the newly uploaded code before PM2 starts or reloads the selected services. Typical use: `npm run db:migrate:prod`. Set `stopForPreCommand: true` when the command should run while the selected PM2 services are stopped; TinyShip verifies PM2 process ownership before stopping them.
+
+`postCommand` is for custom remote commands after the built-in npm and PM2 actions, such as a smoke check or reverse proxy reload.
+
+For a small app that accepts a short maintenance window during database migration:
+
+```yaml
+services:
+  app:
+    host: production-host
+    preCommand:
+      - npm run db:migrate:prod
+    stopForPreCommand: true
+    postCommand:
+      - npm run health:prod
+```
+
+The relevant remote order is `rsync -> npm install -> pm2 stop -> preCommand -> pm2 start/reload -> postCommand`. Without `stopForPreCommand`, TinyShip skips the `pm2 stop` step and runs `preCommand` while the old process is still serving.
 
 Static deployments can disable the built-in remote actions:
 

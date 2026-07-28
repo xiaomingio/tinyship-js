@@ -18,6 +18,7 @@ hosts:
       - package-lock.json
       - ecosystem.config.cjs
       - tinyship.config.yml
+      - scripts/demo-migrate.mjs
 
   staging-host:
     ssh:
@@ -57,6 +58,9 @@ services:
       - apps/backend/.env.production
     npmInstall: true
     pm2Restart: true
+    preCommand:
+      - npm run db:migrate:prod
+    stopForPreCommand: true
     postCommand: []
   staging-tinyship-demo-user:
     host: staging-host

@@ -85,6 +85,71 @@ test('deploy steps run post commands after enabled built-in actions', async () =
   assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('systemctl reload nginx'))));
 });
 
+test('deploy steps run pre commands after install and before pm2 restart', async () => {
+  const deployConfig = exampleDeployConfig({ preCommand: ['npm run db:migrate:prod'] });
+  const ecosystemConfig = exampleEcosystemConfig();
+  const plan = createDeployPlan({ hostName: 'web', ecosystemConfig, deployConfig });
+  const commands: Array<[string, string[]]> = [];
+  const steps = createDeploySteps({
+    plan,
+    deployConfig,
+    ecosystemConfig,
+    rootDir: process.cwd(),
+    runner: async (command, args) => {
+      commands.push([command, args]);
+    },
+  });
+
+  assert.deepEqual(steps.map(step => step.name), [
+    'validate env files',
+    'validate rsync files',
+    'prepare remote directories',
+    'rsync deploy paths',
+    'npm install',
+    'pre command',
+    'pm2 restart',
+  ]);
+
+  await steps[5].run();
+
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('npm run db:migrate:prod'))));
+});
+
+test('deploy steps can stop selected pm2 services before pre commands', async () => {
+  const deployConfig = exampleDeployConfig({
+    preCommand: ['npm run db:migrate:prod'],
+    stopForPreCommand: true,
+  });
+  const ecosystemConfig = exampleEcosystemConfig();
+  const plan = createDeployPlan({ hostName: 'web', ecosystemConfig, deployConfig });
+  const commands: Array<[string, string[]]> = [];
+  const steps = createDeploySteps({
+    plan,
+    deployConfig,
+    ecosystemConfig,
+    rootDir: process.cwd(),
+    runner: async (command, args) => {
+      commands.push([command, args]);
+    },
+  });
+
+  assert.deepEqual(steps.map(step => step.name), [
+    'validate env files',
+    'validate rsync files',
+    'prepare remote directories',
+    'rsync deploy paths',
+    'npm install',
+    'pm2 stop for pre command',
+    'pre command',
+    'pm2 restart',
+  ]);
+
+  await steps[5].run();
+
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes("execFileSync('pm2',['stop',...existing]"))));
+  assert.ok(commands.some(([, args]) => args.some(arg => arg.includes('PM2 name conflict'))));
+});
+
 test('deploy steps for static hosts only prepare and rsync files', () => {
   const deployConfig = exampleDeployConfig({
     npmInstall: false,

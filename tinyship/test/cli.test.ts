@@ -114,9 +114,9 @@ test('bare deploy command prints configured hosts and services', async () => {
 
   assert.ok(errors.some(line => line.includes('tinyship deploy host <hostName>')));
   assert.ok(errors.some(line => line.includes('Configured hosts:')));
-  assert.ok(errors.some(line => line.includes('frontend: ssh=deploy@example.com, appDir=/var/www/frontend, rsync=2, services=1')));
-  assert.ok(errors.some(line => line.includes('backend: ssh=deploy@api.example.com, appDir=/var/www/backend, rsync=1, services=1')));
+  assert.ok(errors.some(line => line.includes('frontend: ssh=deploy@example.com, appDir=/var/www/frontend, rsync=2, services=1, preCommand=0, stopForPreCommand=false')));
+  assert.ok(errors.some(line => line.includes('backend: ssh=deploy@api.example.com, appDir=/var/www/backend, rsync=1, services=1, preCommand=0, stopForPreCommand=false')));
   assert.ok(errors.some(line => line.includes('Configured services:')));
-  assert.ok(errors.some(line => line.includes('web: host=frontend, npmInstall=false, pm2Restart=false, postCommand=0')));
-  assert.ok(errors.some(line => line.includes('api: host=backend, npmInstall=true, pm2Restart=true, postCommand=1')));
+  assert.ok(errors.some(line => line.includes('web: host=frontend, npmInstall=false, pm2Restart=false, preCommand=0, stopForPreCommand=false, postCommand=0')));
+  assert.ok(errors.some(line => line.includes('api: host=backend, npmInstall=true, pm2Restart=true, preCommand=0, stopForPreCommand=false, postCommand=1')));
 });

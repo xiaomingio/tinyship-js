@@ -15,12 +15,12 @@ function printDeployTargets(deployConfig: DeployConfig): void {
   for (const [hostName, host] of Object.entries(deployConfig.hosts ?? {})) {
     const serviceCount = Object.values(deployConfig.services ?? {}).filter(service => service.host === hostName).length;
     const target = sshTarget(host.ssh) ?? '(missing ssh target)';
-    console.error(`- ${hostName}: ssh=${target}, appDir=${host.appDir}, rsync=${host.rsync?.length ?? 0}, services=${serviceCount}`);
+    console.error(`- ${hostName}: ssh=${target}, appDir=${host.appDir}, rsync=${host.rsync?.length ?? 0}, services=${serviceCount}, preCommand=${host.preCommand?.length ?? 0}, stopForPreCommand=${host.stopForPreCommand ?? false}`);
   }
 
   console.error('Configured services:');
   for (const [serviceName, service] of Object.entries(deployConfig.services ?? {})) {
-    console.error(`- ${serviceName}: host=${service.host}, npmInstall=${service.npmInstall ?? true}, pm2Restart=${service.pm2Restart ?? true}, postCommand=${service.postCommand?.length ?? 0}`);
+    console.error(`- ${serviceName}: host=${service.host}, npmInstall=${service.npmInstall ?? true}, pm2Restart=${service.pm2Restart ?? true}, preCommand=${service.preCommand?.length ?? 0}, stopForPreCommand=${service.stopForPreCommand ?? false}, postCommand=${service.postCommand?.length ?? 0}`);
   }
 }
 

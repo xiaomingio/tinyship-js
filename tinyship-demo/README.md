@@ -17,6 +17,8 @@ tinyship-demo/
 ├── tinyship.config.yml
 ├── ecosystem.config.cjs
 ├── ecosystem.staging.config.cjs
+├── scripts/
+│   └── demo-migrate.mjs
 ├── apps/
 │   ├── user/
 │   │   ├── src/user.ts
@@ -49,6 +51,8 @@ Each service owns its source, package metadata, and `dist`. TinyShip publishes o
 `tinyship-demo-admin` loads `apps/admin/.env.production` using the same process boundary.
 
 `tinyship-demo-backend` loads `apps/backend/.env.production`. All three services use `NODE_ENV=production`; application code only reads `process.env`.
+
+`tinyship-demo-backend` also demonstrates the deployment-time migration flow. Its `preCommand` runs `npm run db:migrate:prod` after rsync and `npm install`, and `stopForPreCommand: true` stops the selected backend PM2 process before the migration command. The demo migration writes `.tinyship-demo-db-ledger.json` inside the deployed app directory instead of connecting to a real database.
 
 `staging-tinyship-demo-user` demonstrates deploying the same `tinyship-demo-user` PM2 app to another host. The staging host selects `ecosystem.staging.config.cjs`, while `pm2App` maps the deployment target back to the existing PM2 app name. Its rsync list explicitly includes `apps/user/.env.staging`.
 
