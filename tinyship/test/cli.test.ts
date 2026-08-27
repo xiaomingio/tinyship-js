@@ -2,6 +2,7 @@
  * 文件说明: 验证 TinyShip CLI 的命令层级，确保 deploy host 名称不会和顶层命令冲突。
  */
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -119,4 +120,31 @@ test('bare deploy command prints configured hosts and services', async () => {
   assert.ok(errors.some(line => line.includes('Configured services:')));
   assert.ok(errors.some(line => line.includes('web: host=frontend, npmInstall=false, pm2Restart=false, preCommand=0, stopForPreCommand=false, postCommand=0')));
   assert.ok(errors.some(line => line.includes('api: host=backend, npmInstall=true, pm2Restart=true, preCommand=0, stopForPreCommand=false, postCommand=1')));
+});
+
+test('deploy execution errors do not print the host argument hint', async () => {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tinyship-cli-execution-error-'));
+  fs.writeFileSync(path.join(rootDir, 'tinyship.config.yml'), [
+    'hosts:',
+    '  production:',
+    '    ssh:',
+    '      target: root@example.com',
+    '    appDir: /var/www/app',
+    '    rsync: []',
+    'services: {}',
+  ].join('\n'));
+
+  const result = spawnSync(process.execPath, [
+    path.resolve(import.meta.dirname, '../bin/tinyship.mjs'),
+    'deploy',
+    'service',
+    'missing',
+  ], {
+    cwd: rootDir,
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown deploy service: missing/);
+  assert.doesNotMatch(result.stderr, /Expected one of:/);
 });

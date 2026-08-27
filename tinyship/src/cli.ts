@@ -44,6 +44,20 @@ export async function main(argv: string[] = process.argv.slice(2), rootDir = def
     : undefined;
 
   if (command === 'deploy') {
+    const validScope = (scope === 'all' && !targetName)
+      || (scope === 'host' && Boolean(targetName))
+      || (scope === 'service' && Boolean(targetName));
+    if (!validScope) {
+      if (!scope && !targetName) {
+        console.error(usage);
+        printDeployTargets(deployConfig);
+      } else {
+        console.error(usage);
+      }
+      process.exit(1);
+      return;
+    }
+
     try {
       if (scope === 'all' && !targetName) {
         const ecosystemConfig = await loadProjectEcosystemConfig();
@@ -54,23 +68,24 @@ export async function main(argv: string[] = process.argv.slice(2), rootDir = def
       } else if (scope === 'service' && targetName) {
         const ecosystemConfig = await loadProjectEcosystemConfig();
         await deployService({ serviceName: targetName, deployConfig, ecosystemConfig, rootDir });
-      } else if (!scope && !targetName) {
-        console.error(usage);
-        printDeployTargets(deployConfig);
-        process.exit(1);
-      } else {
-        console.error(usage);
-        process.exit(1);
       }
     } catch (err) {
       console.error(err instanceof Error ? err.message : err);
-      console.error(`Expected one of: ${Object.keys(deployConfig.hosts).join(', ')}`);
       process.exit(1);
     }
     return;
   }
 
   if (command === 'dry-run') {
+    const validScope = (scope === 'all' && !targetName)
+      || (scope === 'host' && Boolean(targetName))
+      || (scope === 'service' && Boolean(targetName));
+    if (!validScope) {
+      console.error(usage);
+      process.exit(1);
+      return;
+    }
+
     try {
       if (scope === 'all' && !targetName) {
         const ecosystemConfig = await loadProjectEcosystemConfig();
@@ -81,13 +96,9 @@ export async function main(argv: string[] = process.argv.slice(2), rootDir = def
       } else if (scope === 'service' && targetName) {
         const ecosystemConfig = await loadProjectEcosystemConfig();
         await dryRunService({ serviceName: targetName, deployConfig, ecosystemConfig, rootDir });
-      } else {
-        console.error(usage);
-        process.exit(1);
       }
     } catch (err) {
       console.error(err instanceof Error ? err.message : err);
-      console.error(`Expected one of: ${Object.keys(deployConfig.hosts).join(', ')}`);
       process.exit(1);
     }
     return;
