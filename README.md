@@ -67,7 +67,7 @@ hosts:
       - tinyship.config.yml
 
 services:
-  demo-service-one:     # Service name, must match the PM2 app name
+  demo-service-one:     # Deployment service key
     host: demo-host-one # Deploys to hosts.demo-host-one
     rsync:              # Files needed only by this service
       - apps/service-one/
@@ -112,7 +112,7 @@ type TinyShipService = {
 };
 ```
 
-Each host can select an `ecosystem` file; omitted hosts use `ecosystem.config.cjs`. A service can set `pm2App` when its deployment key differs from the PM2 app name, for example when `staging-demo-service-one` deploys the existing `demo-service-one` process to another host.
+Each host can select an `ecosystem` file; omitted hosts use `ecosystem.config.cjs`. The service key, application directory name, and PM2 app name can differ. File locations are defined by paths such as `rsync` and the ecosystem app's `script`. Set `pm2App` to select a PM2 app whose name differs from the service key; when omitted, it defaults to the service key. For example, `staging-demo-service-one` can deploy the existing `demo-service-one` process to another host.
 
 ```yaml
 hosts:
@@ -172,7 +172,7 @@ services:
 
 ## ecosystem.config.cjs
 
-PM2 service names must match the services selected by `pm2Restart`. When `pm2Restart` is disabled, this file is not required.
+For services with `pm2Restart` enabled, this file must define an app whose `name` matches the service's `pm2App`, or the service key when `pm2App` is omitted. When `pm2Restart` is disabled, this file is not required.
 
 ```js
 module.exports = {

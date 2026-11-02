@@ -67,7 +67,7 @@ hosts:
       - tinyship.config.yml
 
 services:
-  demo-service-one:     # service 名，需要和 PM2 app name 一致
+  demo-service-one:     # 发布 service key
     host: demo-host-one # 发布到 hosts.demo-host-one
     rsync:              # 仅该 service 需要的文件
       - apps/service-one/
@@ -112,7 +112,7 @@ type TinyShipService = {
 };
 ```
 
-每个 host 可以通过 `ecosystem` 选择 PM2 配置文件；省略时使用 `ecosystem.config.cjs`。当部署 service key 与 PM2 app 名不同时，可以通过 `pm2App` 显式映射，例如让 `staging-demo-service-one` 在另一台 host 上部署已有的 `demo-service-one` 进程。
+每个 host 可以通过 `ecosystem` 选择 PM2 配置文件；省略时使用 `ecosystem.config.cjs`。service key、应用目录名和 PM2 app 名可以不同。文件位置由 `rsync`、ecosystem app 的 `script` 等路径配置指定。PM2 app 名与 service key 不同时，通过 `pm2App` 显式映射；省略 `pm2App` 时默认使用 service key。例如，`staging-demo-service-one` 可以在另一台 host 上部署已有的 `demo-service-one` 进程。
 
 ```yaml
 hosts:
@@ -172,7 +172,7 @@ services:
 
 ## ecosystem.config.cjs
 
-PM2 服务名要和 `pm2Restart` 选择的 services 一致。禁用 `pm2Restart` 时不需要这个文件。
+启用 `pm2Restart` 的 service，需要在此文件中定义 `name` 与其 `pm2App` 匹配的 app；省略 `pm2App` 时按 service key 匹配。禁用 `pm2Restart` 时不需要这个文件。
 
 ```js
 module.exports = {
